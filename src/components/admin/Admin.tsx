@@ -1,56 +1,140 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { LayoutDashboard, FileText, Plus, Save, Trash2, LogOut, Settings } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Plus, 
+  Save, 
+  Trash2, 
+  LogOut, 
+  Settings, 
+  CheckSquare, 
+  MessageSquare,
+  Clock,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+
+interface Task {
+  id: string;
+  title: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  dueDate: string;
+}
+
+interface Message {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  date: string;
+}
 
 export function Admin() {
-  const [activeTab, setActiveTab] = useState('posts');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newTask, setNewTask] = useState({ title: '', priority: 'medium', dueDate: '' });
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState({ title: '', priority: 'medium' });
+
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('admin_tasks');
+    const savedMessages = localStorage.getItem('contact_messages');
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
+    if (savedMessages) setMessages(JSON.parse(savedMessages));
+  }, []);
+
+  const saveTasks = (updatedTasks: Task[]) => {
+    setTasks(updatedTasks);
+    localStorage.setItem('admin_tasks', JSON.stringify(updatedTasks));
+  };
+
+  const addTask = () => {
+    if (!newTask.title) return;
+    const task: Task = {
+      id: Date.now().toString(),
+      title: newTask.title,
+      status: 'pending',
+      priority: newTask.priority as any,
+      dueDate: newTask.dueDate || new Date().toISOString().split('T')[0]
+    };
+    saveTasks([...tasks, task]);
+    setNewTask({ title: '', priority: 'medium', dueDate: '' });
+  };
+
+  const deleteTask = (id: string) => {
+    saveTasks(tasks.filter(t => t.id !== id));
+  };
+
+  const startEditing = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditValue({ title: task.title, priority: task.priority });
+  };
+
+  const saveEdit = () => {
+    if (!editingTaskId) return;
+    saveTasks(tasks.map(t => t.id === editingTaskId ? { ...t, title: editValue.title, priority: editValue.priority as any } : t));
+    setEditingTaskId(null);
+  };
+
+  const toggleTaskStatus = (id: string) => {
+    saveTasks(tasks.map(t => {
+      if (t.id === id) {
+        const statuses: Task['status'][] = ['pending', 'in-progress', 'completed'];
+        const currentIndex = statuses.indexOf(t.status);
+        const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+        return { ...t, status: nextStatus };
+      }
+      return t;
+    }));
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 flex font-roboto">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
         <div className="p-6 border-b border-slate-200">
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <h1 className="text-xl font-extrabold flex items-center gap-2 text-slate-900">
             <LayoutDashboard className="text-[var(--color-accent)]" />
-            Admin Panel
+            ADMIN_CORE
           </h1>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
-          <Button 
-            variant={activeTab === 'posts' ? 'default' : 'ghost'} 
-            className="w-full justify-start gap-3"
-            onClick={() => setActiveTab('posts')}
-          >
-            <FileText size={18} />
-            Blog Posts
-          </Button>
-          <Button 
-            variant={activeTab === 'projects' ? 'default' : 'ghost'} 
-            className="w-full justify-start gap-3"
-            onClick={() => setActiveTab('projects')}
-          >
-            <Plus size={18} />
-            Projects
-          </Button>
-          <Button 
-            variant={activeTab === 'settings' ? 'default' : 'ghost'} 
-            className="w-full justify-start gap-3"
-            onClick={() => setActiveTab('settings')}
-          >
-            <Settings size={18} />
-            Settings
-          </Button>
+        <nav className="flex-1 p-4 space-y-1">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'tasks', label: 'Task Manager', icon: CheckSquare },
+            { id: 'messages', label: 'User Messages', icon: MessageSquare },
+            { id: 'posts', label: 'Blog Posts', icon: FileText },
+            { id: 'projects', label: 'Projects', icon: Plus },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ].map((item) => (
+            <Button 
+              key={item.id}
+              variant={activeTab === item.id ? 'default' : 'ghost'} 
+              className={cn(
+                "w-full justify-start gap-3 font-bold text-sm",
+                activeTab === item.id ? "bg-[var(--color-accent)] text-white" : "text-slate-600"
+              )}
+              onClick={() => setActiveTab(item.id)}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </Button>
+          ))}
         </nav>
         
         <div className="p-4 border-t border-slate-200">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50">
+          <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50 font-bold">
             <LogOut size={18} />
             Logout
           </Button>
@@ -60,75 +144,204 @@ export function Admin() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
-          <h2 className="text-lg font-semibold capitalize">{activeTab}</h2>
-          <Button className="gap-2">
-            <Plus size={18} />
-            New {activeTab === 'posts' ? 'Post' : 'Project'}
-          </Button>
+          <h2 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">{activeTab.replace('-', ' ')}</h2>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="font-mono text-[10px] border-green-200 text-green-600 bg-green-50">SYSTEM_ONLINE</Badge>
+          </div>
         </header>
 
-        <div className="p-8 max-w-5xl mx-auto">
-          {activeTab === 'posts' && (
-            <div className="space-y-6">
-              <Card>
+        <div className="p-8 max-w-6xl mx-auto">
+          {activeTab === 'tasks' && (
+            <div className="space-y-8">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
-                  <CardTitle>Create New Post</CardTitle>
+                  <CardTitle className="text-xl font-extrabold">Add New Task</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Title</label>
-                    <Input placeholder="Enter post title..." />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Category</label>
-                      <Input placeholder="e.g. Networking" />
+                <CardContent>
+                  <div className="grid md:grid-cols-4 gap-4 items-end">
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Task Description</label>
+                      <Input 
+                        placeholder="What needs to be done?" 
+                        value={newTask.title}
+                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Schedule Date</label>
-                      <Input type="date" />
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Priority</label>
+                      <select 
+                        className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={newTask.priority}
+                        onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Content (Markdown)</label>
-                    <Textarea placeholder="Write your post content here..." className="min-h-[300px] font-mono" />
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline">Save Draft</Button>
-                    <Button className="gap-2">
-                      <Save size={18} />
-                      Publish Post
+                    <Button onClick={addTask} className="bg-[var(--color-accent)] font-bold">
+                      <Plus size={18} className="mr-2" /> ADD_TASK
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold">Existing Posts</h3>
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <FileText className="text-slate-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold">Sample Blog Post {i}</h4>
-                        <p className="text-sm text-slate-500">Published on Oct {10 + i}, 2024</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon"><Plus size={18} /></Button>
-                      <Button variant="ghost" size="icon" className="text-red-500"><Trash2 size={18} /></Button>
-                    </div>
-                  </Card>
-                ))}
+              <div className="grid gap-4">
+                <h3 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">Active Tasks ({tasks.length})</h3>
+                {tasks.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                    <CheckSquare className="mx-auto text-slate-300 mb-4" size={48} />
+                    <p className="text-slate-500 font-bold">No tasks found. Start by adding one above.</p>
+                  </div>
+                ) : (
+                  tasks.map((task) => (
+                    <Card key={task.id} className="border-none shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <button 
+                            onClick={() => toggleTaskStatus(task.id)}
+                            className={cn(
+                              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+                              task.status === 'completed' ? "bg-green-500 border-green-500 text-white" : "border-slate-300 hover:border-[var(--color-accent)]"
+                            )}
+                          >
+                            {task.status === 'completed' && <CheckCircle2 size={14} />}
+                          </button>
+                          
+                          {editingTaskId === task.id ? (
+                            <div className="flex-1 flex gap-2 items-center">
+                              <Input 
+                                value={editValue.title}
+                                onChange={(e) => setEditValue({ ...editValue, title: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                              <select 
+                                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm"
+                                value={editValue.priority}
+                                onChange={(e) => setEditValue({ ...editValue, priority: e.target.value as any })}
+                              >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                              <Button size="sm" onClick={saveEdit} className="h-8 bg-green-500 hover:bg-green-600">
+                                <Save size={14} />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingTaskId(null)} className="h-8">
+                                <AlertCircle size={14} />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex-1">
+                              <h4 className={cn(
+                                "font-bold text-slate-900",
+                                task.status === 'completed' && "line-through text-slate-400"
+                              )}>{task.title}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <Badge variant="outline" className={cn(
+                                  "text-[9px] uppercase font-bold",
+                                  task.priority === 'high' ? "text-red-600 bg-red-50 border-red-100" :
+                                  task.priority === 'medium' ? "text-amber-600 bg-amber-50 border-amber-100" :
+                                  "text-blue-600 bg-blue-50 border-blue-100"
+                                )}>
+                                  {task.priority}
+                                </Badge>
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
+                                  <Clock size={10} /> {task.dueDate}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          {editingTaskId !== task.id && (
+                            <Button variant="ghost" size="icon" onClick={() => startEditing(task)} className="text-slate-400 hover:text-[var(--color-accent)]">
+                              <FileText size={18} />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="text-slate-400 hover:text-red-500">
+                            <Trash2 size={18} />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </div>
           )}
+
+          {activeTab === 'messages' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">Inbox ({messages.length})</h3>
+                <Button variant="outline" size="sm" onClick={() => {
+                  localStorage.removeItem('contact_messages');
+                  setMessages([]);
+                }} className="text-red-500 border-red-100 hover:bg-red-50 font-bold">
+                  CLEAR_ALL
+                </Button>
+              </div>
+
+              {messages.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                  <MessageSquare className="mx-auto text-slate-300 mb-4" size={48} />
+                  <p className="text-slate-500 font-bold">No messages received yet.</p>
+                </div>
+              ) : (
+                <div className="grid gap-6">
+                  {messages.map((msg) => (
+                    <Card key={msg.id} className="border-none shadow-sm overflow-hidden">
+                      <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-[var(--color-accent)] text-white flex items-center justify-center font-bold text-xs">
+                            {msg.name[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900">{msg.name}</span>
+                            <span className="text-slate-400 text-xs ml-2">({msg.email})</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">{msg.date}</span>
+                      </div>
+                      <CardContent className="p-6">
+                        <h4 className="font-extrabold text-slate-900 mb-2 uppercase tracking-tight">{msg.subject}</h4>
+                        <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'dashboard' && (
+            <div className="grid md:grid-cols-3 gap-6">
+              <Card className="border-none shadow-sm bg-blue-500 text-white">
+                <CardContent className="p-6">
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2">Total Tasks</p>
+                  <h3 className="text-4xl font-extrabold">{tasks.length}</h3>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-sm bg-purple-500 text-white">
+                <CardContent className="p-6">
+                  <p className="text-purple-100 text-xs font-bold uppercase tracking-widest mb-2">New Messages</p>
+                  <h3 className="text-4xl font-extrabold">{messages.length}</h3>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-sm bg-emerald-500 text-white">
+                <CardContent className="p-6">
+                  <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-2">System Status</p>
+                  <h3 className="text-4xl font-extrabold">100%</h3>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           
-          {activeTab === 'projects' && (
-            <div className="text-center py-20">
-              <p className="text-slate-500">Project management coming soon...</p>
+          {(activeTab === 'posts' || activeTab === 'projects' || activeTab === 'settings') && (
+            <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
+              <AlertCircle className="mx-auto text-slate-300 mb-4" size={48} />
+              <p className="text-slate-500 font-bold capitalize">{activeTab} management interface is under construction.</p>
             </div>
           )}
         </div>

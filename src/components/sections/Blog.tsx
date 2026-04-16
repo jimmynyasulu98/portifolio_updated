@@ -113,7 +113,7 @@ export function Blog() {
                 <span className="flex items-center gap-1"><Calendar size={12} /> {post.date}</span>
               </div>
               
-              <h4 className="text-xl font-bold mb-4 group-hover:text-[var(--color-accent)] transition-colors leading-tight">
+              <h4 className="text-2xl font-extrabold mb-4 group-hover:text-[var(--color-accent)] transition-colors leading-tight font-roboto">
                 {post.title}
               </h4>
               <p className="text-[var(--color-text-dim)] text-sm mb-8 line-clamp-2 leading-relaxed">

@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'motion/react';
-import { Mail, Phone, MapPin, Send, Linkedin, Github, Twitter } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, Linkedin, Github, Twitter, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +16,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -24,6 +32,7 @@ const formSchema = z.object({
 });
 
 export function Contact() {
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
@@ -36,8 +45,17 @@ export function Contact() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    alert('EXECUTE_SEND: SUCCESS');
+    // Save to localStorage for Admin view
+    const savedMessages = localStorage.getItem('contact_messages');
+    const messages = savedMessages ? JSON.parse(savedMessages) : [];
+    const newMessage = {
+      id: Date.now().toString(),
+      ...values,
+      date: new Date().toLocaleString()
+    };
+    localStorage.setItem('contact_messages', JSON.stringify([newMessage, ...messages]));
+
+    setShowSuccessModal(true);
     form.reset();
   }
 
@@ -195,6 +213,39 @@ export function Contact() {
           </motion.div>
         </div>
       </div>
+
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="max-w-md bg-[var(--color-surface)] border-[var(--color-border)] p-0 overflow-hidden">
+          <div className="h-2 bg-[var(--color-accent)] w-full" />
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-[var(--color-accent-dim)] rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShieldCheck size={40} className="text-[var(--color-accent)]" />
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-3xl font-extrabold font-roboto mb-2 text-[var(--color-text-main)]">
+                TRANSMISSION_SUCCESS
+              </DialogTitle>
+              <DialogDescription className="text-[var(--color-text-dim)] font-mono text-sm uppercase tracking-widest">
+                Protocol: Secure // Status: Delivered
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-8 space-y-4">
+              <p className="text-[var(--color-text-dim)] leading-relaxed">
+                Your message has been successfully encrypted and transmitted to the central server. 
+                Jimmy will review your request and respond via the provided communication channel.
+              </p>
+              <div className="pt-6">
+                <Button 
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full h-12 rounded-md font-mono font-bold uppercase tracking-widest bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90"
+                >
+                  CLOSE_CONNECTION
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

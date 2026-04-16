@@ -1,4 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
+import { Github, Linkedin, Twitter } from 'lucide-react';
 import { Header } from './components/layout/Header';
 import { Hero } from './components/sections/Hero';
 import { About } from './components/sections/About';
@@ -35,18 +36,24 @@ export default function App() {
       </Routes>
       
       {!isAdminPage && (
-        <footer className="py-8 border-t border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] uppercase tracking-widest">
+        <footer className="py-12 border-t border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] uppercase tracking-widest">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="flex gap-8">
-              <div>SYSTEM: OPERATIONAL // IP: 192.168.1.1</div>
+              <div>UNIVERSITY OF MALAWI P.O BOX 280 ZOMBA</div>
               <div className="hidden md:block">© {new Date().getFullYear()} J. NYASULU</div>
             </div>
             
-            <div className="flex gap-8">
-              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">GITHUB</a>
-              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">LINKEDIN</a>
-              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">TWITTER</a>
+            <div className="flex gap-10">
+              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">
+                <Github size={24} />
+              </a>
+              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">
+                <Linkedin size={24} />
+              </a>
+              <a href="#" className="hover:text-[var(--color-accent)] transition-colors">
+                <Twitter size={24} />
+              </a>
             </div>
           </div>
         </div>
