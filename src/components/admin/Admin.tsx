@@ -39,6 +39,13 @@ interface Message {
 }
 
 export function Admin() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [password, setPassword] = useState('');
+  const [resetKey, setResetKey] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showReset, setShowReset] = useState(false);
+  const [error, setError] = useState('');
+  
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,9 +56,129 @@ export function Admin() {
   useEffect(() => {
     const savedTasks = localStorage.getItem('admin_tasks');
     const savedMessages = localStorage.getItem('contact_messages');
+    const authStatus = sessionStorage.getItem('admin_auth');
+    
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (savedMessages) setMessages(JSON.parse(savedMessages));
+    if (authStatus === 'true') setIsLoggedIn(true);
   }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const correctPassword = localStorage.getItem('admin_password') || 'admin';
+    if (password === correctPassword) {
+      setIsLoggedIn(true);
+      sessionStorage.setItem('admin_auth', 'true');
+      setError('');
+    } else {
+      setError('Invalid password');
+    }
+  };
+
+  const handleReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, this would be a server-side check. 
+    // For this environment, we use the key provided by the user.
+    const validResetKey = "password-reset-key-2026"; 
+    
+    if (resetKey === validResetKey) {
+      localStorage.setItem('admin_password', newPassword);
+      setShowReset(false);
+      setError('Password reset successful. Please login.');
+      setResetKey('');
+      setNewPassword('');
+    } else {
+      setError('Invalid reset key');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    sessionStorage.removeItem('admin_auth');
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-roboto">
+        <Card className="w-full max-w-md border-none shadow-xl overflow-hidden">
+          <div className="h-2 bg-[var(--color-accent)] w-full" />
+          <CardHeader className="pt-10 pb-6 text-center">
+            <div className="w-16 h-16 bg-[var(--color-accent-dim)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Settings size={32} className="text-[var(--color-accent)]" />
+            </div>
+            <CardTitle className="text-3xl font-extrabold text-slate-900">ADMIN_ACCESS</CardTitle>
+            <p className="text-slate-500 text-sm font-mono uppercase tracking-widest mt-2">
+              {showReset ? 'Protocol: Password Reset' : 'Protocol: Authentication Required'}
+            </p>
+          </CardHeader>
+          <CardContent className="px-10 pb-10">
+            {showReset ? (
+              <form onSubmit={handleReset} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Reset Key</label>
+                  <Input 
+                    type="password" 
+                    placeholder="ENTER_RESET_KEY"
+                    value={resetKey}
+                    onChange={(e) => setResetKey(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">New Password</label>
+                  <Input 
+                    type="password" 
+                    placeholder="NEW_PASSWORD"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
+                  />
+                </div>
+                {error && <p className="text-xs font-bold text-red-500 mt-2">{error}</p>}
+                <Button type="submit" className="w-full h-12 bg-[var(--color-accent)] font-bold uppercase tracking-widest mt-4">
+                  RESET_PASSWORD
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  onClick={() => { setShowReset(false); setError(''); }}
+                  className="w-full text-slate-500 font-bold"
+                >
+                  BACK_TO_LOGIN
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Access Password</label>
+                  <Input 
+                    type="password" 
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
+                  />
+                </div>
+                {error && <p className="text-xs font-bold text-red-500 mt-2">{error}</p>}
+                <Button type="submit" className="w-full h-12 bg-[var(--color-accent)] font-bold uppercase tracking-widest mt-4">
+                  EXECUTE_LOGIN
+                </Button>
+                <div className="text-center mt-6">
+                  <button 
+                    type="button"
+                    onClick={() => { setShowReset(true); setError(''); }}
+                    className="text-[10px] font-mono uppercase tracking-widest text-slate-400 hover:text-[var(--color-accent)] transition-colors"
+                  >
+                    Forgot Password? Reset Protocol
+                  </button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const saveTasks = (updatedTasks: Task[]) => {
     setTasks(updatedTasks);
@@ -134,7 +261,11 @@ export function Admin() {
         </nav>
         
         <div className="p-4 border-t border-slate-200">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50 font-bold">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50 font-bold"
+            onClick={handleLogout}
+          >
             <LogOut size={18} />
             Logout
           </Button>
