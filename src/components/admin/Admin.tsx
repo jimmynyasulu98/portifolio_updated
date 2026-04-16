@@ -52,6 +52,9 @@ export function Admin() {
   const [newTask, setNewTask] = useState({ title: '', priority: 'medium', dueDate: '' });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState({ title: '', priority: 'medium' });
+  
+  const [changePasswordData, setChangePasswordData] = useState({ current: '', new: '', confirm: '' });
+  const [changePasswordStatus, setChangePasswordStatus] = useState({ type: '', message: '' });
 
   useEffect(() => {
     const savedTasks = localStorage.getItem('admin_tasks');
@@ -73,6 +76,30 @@ export function Admin() {
     } else {
       setError('Invalid password');
     }
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    const currentStored = localStorage.getItem('admin_password') || 'admin';
+    
+    if (changePasswordData.current !== currentStored) {
+      setChangePasswordStatus({ type: 'error', message: 'Current password is incorrect' });
+      return;
+    }
+    
+    if (changePasswordData.new !== changePasswordData.confirm) {
+      setChangePasswordStatus({ type: 'error', message: 'New passwords do not match' });
+      return;
+    }
+    
+    if (changePasswordData.new.length < 4) {
+      setChangePasswordStatus({ type: 'error', message: 'Password must be at least 4 characters' });
+      return;
+    }
+    
+    localStorage.setItem('admin_password', changePasswordData.new);
+    setChangePasswordStatus({ type: 'success', message: 'Password updated successfully' });
+    setChangePasswordData({ current: '', new: '', confirm: '' });
   };
 
   const handleReset = (e: React.FormEvent) => {
@@ -469,7 +496,84 @@ export function Admin() {
             </div>
           )}
           
-          {(activeTab === 'posts' || activeTab === 'projects' || activeTab === 'settings') && (
+          {activeTab === 'settings' && (
+            <div className="max-w-2xl space-y-8">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-extrabold">Security Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleChangePassword} className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Current Password</label>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••"
+                          value={changePasswordData.current}
+                          onChange={(e) => setChangePasswordData({ ...changePasswordData, current: e.target.value })}
+                          className="border-slate-200 focus:border-[var(--color-accent)]"
+                        />
+                      </div>
+                      
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
+                          <Input 
+                            type="password" 
+                            placeholder="••••••••"
+                            value={changePasswordData.new}
+                            onChange={(e) => setChangePasswordData({ ...changePasswordData, new: e.target.value })}
+                            className="border-slate-200 focus:border-[var(--color-accent)]"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Confirm New Password</label>
+                          <Input 
+                            type="password" 
+                            placeholder="••••••••"
+                            value={changePasswordData.confirm}
+                            onChange={(e) => setChangePasswordData({ ...changePasswordData, confirm: e.target.value })}
+                            className="border-slate-200 focus:border-[var(--color-accent)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {changePasswordStatus.message && (
+                      <p className={cn(
+                        "text-xs font-bold",
+                        changePasswordStatus.type === 'success' ? "text-green-500" : "text-red-500"
+                      )}>
+                        {changePasswordStatus.message}
+                      </p>
+                    )}
+
+                    <Button type="submit" className="bg-[var(--color-accent)] font-bold">
+                      <Save size={18} className="mr-2" /> UPDATE_PASSWORD
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm border-l-4 border-amber-500">
+                <CardContent className="p-6">
+                  <div className="flex gap-4">
+                    <AlertCircle className="text-amber-500 shrink-0" size={24} />
+                    <div>
+                      <h4 className="font-bold text-slate-900 mb-1">Password Reset Protocol</h4>
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        If you lose your password, you can use the emergency reset key on the login screen. 
+                        The current protocol key is: <code className="bg-slate-100 px-1 rounded text-slate-900 font-mono">password-reset-key-2026</code>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {(activeTab === 'posts' || activeTab === 'projects') && (
             <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
               <AlertCircle className="mx-auto text-slate-300 mb-4" size={48} />
               <p className="text-slate-500 font-bold capitalize">{activeTab} management interface is under construction.</p>

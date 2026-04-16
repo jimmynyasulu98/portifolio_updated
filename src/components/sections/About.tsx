@@ -90,16 +90,18 @@ export function About() {
                     </div>
                     
                     <Dialog>
-                      <DialogTrigger>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="rounded-md border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white"
-                        >
-                          <Eye size={16} className="mr-2" />
-                          PREVIEW
-                        </Button>
-                      </DialogTrigger>
+                      <DialogTrigger
+                        render={
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="rounded-md border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white"
+                          >
+                            <Eye size={16} className="mr-2" />
+                            PREVIEW
+                          </Button>
+                        }
+                      />
                       <DialogContent className="max-w-4xl h-[80vh] bg-[var(--color-surface)] border-[var(--color-border)]">
                         <DialogHeader>
                           <DialogTitle className="text-xl font-bold font-roboto">{c.name}</DialogTitle>
