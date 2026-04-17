@@ -29,7 +29,7 @@ export function Projects() {
       setProjects(sortedData);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'projects');
+      console.error("Projects Error:", error);
       setLoading(false);
     });
 
@@ -59,9 +59,10 @@ export function Projects() {
             <Loader2 className="animate-spin text-[var(--color-accent)]" size={40} />
           </div>
         ) : projects.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-[var(--color-border)] rounded-xl">
-            <Package className="mx-auto text-[var(--color-text-dim)] mb-4 opacity-20" size={48} />
-            <p className="text-[var(--color-text-dim)] font-mono text-sm uppercase tracking-widest">No infrastructure projects indexed yet</p>
+          <div className="text-center py-20 border border-dashed border-[var(--color-border)] rounded-xl opacity-50 grayscale hover:grayscale-0 transition-all">
+            <Package className="mx-auto text-[var(--color-text-dim)] mb-4 opacity-40" size={48} />
+            <p className="text-[var(--color-text-dim)] font-mono text-xs uppercase tracking-widest mb-2">System offline or no data indexed</p>
+            <p className="text-[10px] font-mono text-[var(--color-text-dim)] opacity-40">Check Firebase configuration / ensure database is populated</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">

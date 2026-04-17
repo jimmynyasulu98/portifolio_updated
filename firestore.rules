@@ -1,16 +1,38 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Standard catch-all for Authenticated users
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+    // Helper function to check if the user is the specific admin email
+    function isAdmin() {
+      return request.auth != null && 
+             (request.auth.token.email == "Jimmynyasulu98@gmail.com" && request.auth.token.email_verified == true);
     }
 
-    // Explicit public read for portfolio items
-    match /projects/{id} { allow read: if true; }
-    match /posts/{id} { allow read: if true; }
-    match /certificates/{id} { allow read: if true; }
-    match /skills/{id} { allow read: if true; }
-    match /comments/{id} { allow read: if true; }
+    // Public Collections: Anyone can read, only admin can write
+    match /projects/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /posts/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /certificates/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /skills/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /comments/{id} {
+      // Anyone can read and create comments; admin can delete/update
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Default deny for everything else
+    match /{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
   }
 }
