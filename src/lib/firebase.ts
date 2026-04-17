@@ -4,11 +4,17 @@ import { getFirestore } from 'firebase/firestore';
 
 // Handle optional config file for cloud deployments (like Vercel)
 let localConfig: any = {};
-try {
-  // @ts-ignore - this file might not exist in production
-  localConfig = (await import('../../firebase-applet-config.json')).default;
-} catch (e) {
-  // Fallback to empty object if file missing
+
+// In production (Vercel), we rely entirely on environment variables.
+// In development, we can try to load the local config file.
+if (import.meta.env.DEV) {
+  try {
+    // @ts-ignore
+    const importedConfig = await import('../../firebase-applet-config.json');
+    localConfig = importedConfig.default || importedConfig;
+  } catch (e) {
+    // Fallback if file missing in development
+  }
 }
 
 const firebaseConfig = {
