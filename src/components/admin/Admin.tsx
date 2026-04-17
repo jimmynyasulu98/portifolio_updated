@@ -258,7 +258,11 @@ export function Admin() {
   };
 
   const seedSkills = async () => {
-    if (!confirm('This will import all skills from the default template. Proceed?')) return;
+    if (skills.length > 0) {
+      if (!confirm(`Warning: You already have ${skills.length} skills. Seeding will create duplicates. Do you want to continue?`)) return;
+    } else {
+      if (!confirm('This will import all skills from the default template. Proceed?')) return;
+    }
     setIsSaving(true);
     setSuccess('');
     setError('');
@@ -306,7 +310,12 @@ export function Admin() {
   };
 
   const seedData = async () => {
-    if (!confirm('This will seed sample data into your database. Existing data will remain. Proceed?')) return;
+    const hasData = posts.length > 0 || projects.length > 0 || certificates.length > 0 || skills.length > 0;
+    if (hasData) {
+      if (!confirm('Warning: Your database already contains data. Seeding will create duplicates of all template items. Proceed?')) return;
+    } else {
+      if (!confirm('This will seed sample data into your database. Existing data will remain. Proceed?')) return;
+    }
     try {
       for (const post of BLOG_POSTS) {
         const { id, ...postData } = post;
@@ -350,11 +359,42 @@ export function Admin() {
   };
 
   const deleteItem = async (col: string, id: string) => {
-    if (!confirm('Permanent deletion requested. Proceed?')) return;
+    if (!id) {
+      setError(`CRITICAL_FAIL: Missing document ID for ${col}`);
+      return;
+    }
+    
+    if (!confirm('Permanent deletion requested. This action is irreversible. Proceed?')) return;
+    
+    setIsSaving(true);
+    setSuccess('');
+    setError('');
+    
     try {
       await deleteDoc(doc(db, col, id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, col);
+      setSuccess(`${col.toUpperCase()}_DELETED_SUCCESSFULLY`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error(`Delete Error [${col}]:`, err);
+      setError(`ACCESS_DENIED: ${err.message || 'Permissions insufficient for deletion.'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const purgeSkills = async () => {
+    if (!confirm('DANGER: This will delete ALL skills in your database. Continue?')) return;
+    setIsSaving(true);
+    setError('');
+    try {
+      // We perform deletions one by one for simplicity in this environment
+      const deletePromises = skills.map(s => deleteDoc(doc(db, 'skills', s.id!)));
+      await Promise.all(deletePromises);
+      setSuccess('Skills matrix purged successfully!');
+    } catch (err: any) {
+      setError(`PURGE_FAILED: ${err.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1000,15 +1040,26 @@ export function Admin() {
                   <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">Skills Matrix</h3>
                   <p className="text-sm text-slate-500 font-mono mt-1 uppercase tracking-tight">Manage Technical Expertise Registry ({skills.length} Items)</p>
                 </div>
-                {skills.length === 0 && (
-                  <Button 
-                    onClick={seedSkills} 
-                    variant="outline" 
-                    className="border-[var(--color-accent)] text-[var(--color-accent)] font-bold gap-2"
-                  >
-                    <Plus size={16} /> IMPORT_TEMPLATE_SKILLS
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {skills.length > 0 && (
+                    <Button 
+                      onClick={purgeSkills} 
+                      variant="outline" 
+                      className="border-red-200 text-red-500 hover:bg-red-50 font-bold gap-2"
+                    >
+                      <Trash2 size={16} /> PURGE_ALL
+                    </Button>
+                  )}
+                  {skills.length === 0 && (
+                    <Button 
+                      onClick={seedSkills} 
+                      variant="outline" 
+                      className="border-[var(--color-accent)] text-[var(--color-accent)] font-bold gap-2"
+                    >
+                      <Plus size={16} /> IMPORT_TEMPLATE_SKILLS
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <Card className="border-none shadow-sm overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)]">
@@ -1081,7 +1132,10 @@ export function Admin() {
                           <div key={skill.id} className="flex items-center justify-between group">
                             <div className="flex-1">
                               <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-bold text-slate-700">{skill.name}</span>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-slate-700">{skill.name}</span>
+                                  <span className="text-[8px] font-mono text-slate-400">ID: {skill.id?.slice(-8)}</span>
+                                </div>
                                 <span className="text-[10px] font-mono text-slate-400">{skill.level}%</span>
                               </div>
                               <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
