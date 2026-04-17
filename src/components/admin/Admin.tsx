@@ -108,34 +108,34 @@ export function Admin() {
 
     // Small delay to ensure the database recognizes your login token
     const timer = setTimeout(() => {
-      const unsubPosts = onSnapshot(query(collection(db, 'posts'), orderBy('createdAt', 'desc')), (snap) => {
-        setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost)));
+      const unsubPosts = onSnapshot(collection(db, 'posts'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+        setPosts(data.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
 
-      const unsubProjects = onSnapshot(query(collection(db, 'projects'), orderBy('createdAt', 'desc')), (snap) => {
-        setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+      const unsubProjects = onSnapshot(collection(db, 'projects'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+        setProjects(data.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'projects'));
 
-      const unsubMessages = onSnapshot(query(collection(db, 'contact_messages'), orderBy('createdAt', 'desc')), (snap) => {
-        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const unsubMessages = onSnapshot(collection(db, 'contact_messages'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        setMessages(data.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'contact_messages'));
 
-      const unsubTasks = onSnapshot(query(collection(db, 'admin_tasks'), orderBy('createdAt', 'desc')), (snap) => {
-        setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const unsubTasks = onSnapshot(collection(db, 'admin_tasks'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        setTasks(data.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'admin_tasks'));
 
       const unsubCerts = onSnapshot(collection(db, 'certificates'), (snap) => {
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Certificate));
-        const sortedData = data.sort((a: any, b: any) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-        setCertificates(sortedData);
+        setCertificates(data.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'certificates'));
 
-      const unsubSkills = onSnapshot(query(collection(db, 'skills'), orderBy('category', 'asc')), (snap) => {
-        setSkills(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Skill)));
+      const unsubSkills = onSnapshot(collection(db, 'skills'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Skill));
+        setSkills(data.sort((a, b) => (a.category || '').localeCompare(b.category || '')));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'skills'));
 
       // Use a global to store unsubs for simple cleanup
@@ -842,7 +842,10 @@ export function Admin() {
                         <img src={post.image} className="w-12 h-12 rounded object-cover border" alt="" referrerPolicy="no-referrer" />
                         <div className="overflow-hidden">
                           <h4 className="font-bold truncate">{post.title}</h4>
-                          <p className="text-[10px] text-slate-400 uppercase font-mono">{post.category} • {post.date}</p>
+                          <p className="text-[10px] text-slate-400 uppercase font-mono">
+                            {post.category} • {post.date}
+                            {!(post as any).createdAt && <span className="text-amber-500 ml-2">⚠️ NO_TIMESTAMP (HIDDEN_BY_SERVER_SORT)</span>}
+                          </p>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -935,6 +938,7 @@ export function Admin() {
                     </div>
                     <CardContent className="p-4 flex-1">
                       <h4 className="font-bold text-lg mb-2">{project.title}</h4>
+                      {!(project as any).createdAt && <Badge variant="destructive" className="text-[8px] mb-2">MISSING_METADATA_TIMESTAMP</Badge>}
                       <p className="text-xs text-slate-500 line-clamp-2 mb-4">{project.description}</p>
                       <div className="flex flex-wrap gap-2">
                         {project.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
