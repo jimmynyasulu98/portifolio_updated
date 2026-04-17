@@ -1,20 +1,20 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Github, ExternalLink, ArrowLeft, Tag, Calendar, User, MessageSquare, Send, Loader2 } from 'lucide-react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { ArrowLeft, Calendar, User, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
-import { doc, getDoc, collection, addDoc, onSnapshot, query, where, serverTimestamp } from 'firebase/firestore';
-import { Project, Comment } from '@/types';
+import { doc, getDoc, collection, addDoc, onSnapshot, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { BlogPost, Comment } from '@/types';
 
-export function ProjectDetail() {
+export function BlogDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState<Project | null>(null);
+  const [post, setPost] = useState<BlogPost | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,27 +24,28 @@ export function ProjectDetail() {
     window.scrollTo(0, 0);
     if (!id) return;
 
-    const fetchProject = async () => {
+    // Fetch Post
+    const fetchPost = async () => {
       try {
-        const docRef = doc(db, 'projects', id);
+        const docRef = doc(db, 'posts', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setProject({ id: docSnap.id, ...docSnap.data() } as Project);
+          setPost({ id: docSnap.id, ...docSnap.data() } as BlogPost);
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `projects/${id}`);
+        handleFirestoreError(error, OperationType.GET, `posts/${id}`);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProject();
+    fetchPost();
 
     // Fetch Comments
     const q = query(
       collection(db, 'comments'),
       where('parentId', '==', id),
-      where('parentType', '==', 'project'),
+      where('parentType', '==', 'post'),
       where('approved', '==', true)
     );
     
@@ -71,11 +72,11 @@ export function ProjectDetail() {
     try {
       await addDoc(collection(db, 'comments'), {
         parentId: id,
-        parentType: 'project',
+        parentType: 'post',
         name: newComment.name,
         content: newComment.content,
         timestamp: serverTimestamp(),
-        approved: true,
+        approved: true, // Auto-approve for now, can change later
         date: new Date().toLocaleDateString()
       });
       setNewComment({ name: '', content: '' });
@@ -88,17 +89,23 @@ export function ProjectDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-accent)]">
-        <Loader2 className="animate-spin" size={48} />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+        <Loader2 className="animate-spin text-[var(--color-accent)]" size={48} />
       </div>
     );
   }
 
-  if (!project) {
+  if (!post) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-main)]">
-        <h2 className="text-2xl font-bold mb-4 font-mono uppercase tracking-widest opacity-40">// ERR: PROJECT_NOT_FOUND</h2>
-        <Button onClick={() => navigate('/')} className="font-mono text-xs tracking-widest">RETURN_TO_HOME</Button>
+        <h2 className="text-2xl font-bold mb-4 font-mono uppercase tracking-widest opacity-40">// ERR: LOG_NOT_FOUND</h2>
+        <Button 
+          variant="outline"
+          className="border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-widest"
+          onClick={() => navigate('/')}
+        >
+          RETURN_TO_BASE
+        </Button>
       </div>
     );
   }
@@ -110,120 +117,52 @@ export function ProjectDetail() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="max-w-4xl mx-auto"
         >
           <Link 
             to="/" 
             className="inline-flex items-center gap-2 text-sm font-mono text-[var(--color-text-dim)] hover:text-[var(--color-accent)] transition-colors mb-12 group"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            BACK_TO_PROJECTS
+            BACK_TO_LOGS
           </Link>
 
-          <div className="grid lg:grid-cols-2 gap-16 mb-24">
-            <div>
-              <div className="card-label mb-6">Project Archive // {project.id.slice(0, 8)}</div>
-              <h1 className="text-5xl md:text-6xl font-bold tracking-tighter mb-8 bg-gradient-to-r from-[var(--color-text-main)] to-[var(--color-accent)] bg-clip-text text-transparent">
-                {project.title}
-              </h1>
-              
-              <div className="flex flex-wrap gap-3 mb-10">
-                {project.tags.map(tag => (
-                  <Badge 
-                    key={tag} 
-                    variant="outline" 
-                    className="rounded-md px-3 py-1 border-[var(--color-accent-dim)] text-[var(--color-accent)] bg-[var(--color-accent-dim)] font-mono text-[10px] tracking-wider"
-                  >
-                    {tag.toUpperCase()}
-                  </Badge>
-                ))}
+          <header className="mb-12">
+            <div className="card-label mb-6">Log Archive // {post.category}</div>
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-8 font-roboto leading-tight text-[var(--color-text-main)]">
+              {post.title}
+            </h1>
+            
+            <div className="flex flex-wrap items-center gap-6 text-sm text-[var(--color-text-dim)] font-mono uppercase tracking-widest border-y border-[var(--color-border)] py-6">
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-[var(--color-accent)]" />
+                <span>{post.date}</span>
               </div>
-
-              <div className="prose prose-invert max-w-none mb-12">
-                <p className="text-lg text-[var(--color-text-dim)] leading-relaxed font-mono text-sm whitespace-pre-wrap">
-                  {project.description}
-                </p>
+              <div className="flex items-center gap-2">
+                <User size={16} className="text-[var(--color-accent)]" />
+                <span>Jimmy Nyasulu</span>
               </div>
-
-              <div className="flex flex-wrap gap-4">
-                {project.github && (
-                  <a 
-                    href={project.github} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className={cn(
-                      buttonVariants({ variant: "default" }),
-                      "rounded-md bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 font-mono text-xs tracking-widest px-8"
-                    )}
-                  >
-                    <Github size={16} className="mr-2" />
-                    SOURCE_CODE
-                  </a>
-                )}
-                {project.link && (
-                  <a 
-                    href={project.link} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className={cn(
-                      buttonVariants({ variant: "outline" }),
-                      "rounded-md border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-accent)] font-mono text-xs tracking-widest px-8"
-                    )}
-                  >
-                    <ExternalLink size={16} className="mr-2" />
-                    LIVE_DEMO
-                  </a>
-                )}
-              </div>
+              <Badge variant="outline" className="rounded-md border-[var(--color-accent-dim)] text-[var(--color-accent)] bg-[var(--color-accent-dim)] font-mono text-[10px] tracking-wider px-3 py-1">
+                {post.category.toUpperCase()}
+              </Badge>
             </div>
+          </header>
 
-            <div className="space-y-8">
-              <motion.div 
-                className="immersive-card p-2"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                <img 
-                  src={project.image} 
-                  alt={project.title} 
-                  className="w-full h-auto rounded-lg border border-[var(--color-border)]"
-                  referrerPolicy="no-referrer"
-                />
-              </motion.div>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div className="immersive-card">
-                  <div className="flex items-center gap-3 text-[var(--color-accent)] mb-2">
-                    <Calendar size={16} />
-                    <span className="text-[10px] font-mono uppercase tracking-widest">Deployment</span>
-                  </div>
-                  <p className="text-sm font-bold">LATEST_SYNC_2024</p>
-                </div>
-                <div className="immersive-card">
-                  <div className="flex items-center gap-3 text-[var(--color-accent)] mb-2">
-                    <User size={16} />
-                    <span className="text-[10px] font-mono uppercase tracking-widest">Architect</span>
-                  </div>
-                  <p className="text-sm font-bold">Jimmy Nyasulu</p>
-                </div>
-              </div>
-
-              <div className="immersive-card">
-                <div className="flex items-center gap-3 text-[var(--color-accent)] mb-4">
-                  <Tag size={16} />
-                  <span className="text-[10px] font-mono uppercase tracking-widest">Tech Stack</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {project.tags.map(tag => (
-                    <span key={tag} className="text-[11px] font-mono text-[var(--color-text-dim)] bg-[var(--color-bg)] px-2 py-1 rounded border border-[var(--color-border)]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="relative aspect-video rounded-xl overflow-hidden mb-12 border border-[var(--color-border)] shadow-2xl shadow-[var(--color-accent)]/5">
+            <img 
+              src={post.image} 
+              alt={post.title} 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-bg)]/80 to-transparent" />
           </div>
 
-          <section className="max-w-4xl mx-auto space-y-12">
+          <div className="markdown-body prose prose-invert prose-emerald max-w-none text-lg text-[var(--color-text-dim)] leading-relaxed mb-20">
+            <ReactMarkdown>{post.content}</ReactMarkdown>
+          </div>
+
+          <section className="space-y-12">
             <div className="flex items-center gap-4 mb-8">
               <MessageSquare className="text-[var(--color-accent)]" size={24} />
               <h3 className="text-2xl font-extrabold font-roboto tracking-tight">TRANSMISSION_FEEDBACK ({comments.length})</h3>
@@ -286,6 +225,26 @@ export function ProjectDetail() {
               ))}
             </div>
           </section>
+
+          <footer className="mt-20 pt-12 border-t border-[var(--color-border)]">
+             <div className="immersive-card bg-[var(--color-surface)] p-8 flex flex-col md:flex-row items-center gap-8 md:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-2xl font-extrabold text-[var(--color-bg)] font-roboto">
+                    JN
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xl font-roboto text-[var(--color-text-main)]">Jimmy Nyasulu</h4>
+                    <p className="text-sm text-[var(--color-text-dim)]">Lead Systems & Software Engineer</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => navigate('/#contact')} 
+                  className="bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 font-mono font-bold uppercase tracking-widest"
+                >
+                  DISCUSS_THIS_LOG
+                </Button>
+             </div>
+          </footer>
         </motion.div>
       </div>
     </div>

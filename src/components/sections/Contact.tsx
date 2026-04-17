@@ -3,11 +3,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'motion/react';
-import { Mail, Phone, MapPin, Send, Linkedin, Github, Twitter, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, Linkedin, Github, Twitter, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Form,
   FormControl,
@@ -33,6 +35,8 @@ const formSchema = z.object({
 
 export function Contact() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
@@ -44,19 +48,23 @@ export function Contact() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Save to localStorage for Admin view
-    const savedMessages = localStorage.getItem('contact_messages');
-    const messages = savedMessages ? JSON.parse(savedMessages) : [];
-    const newMessage = {
-      id: Date.now().toString(),
-      ...values,
-      date: new Date().toLocaleString()
-    };
-    localStorage.setItem('contact_messages', JSON.stringify([newMessage, ...messages]));
-
-    setShowSuccessModal(true);
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const path = 'contact_messages';
+      await addDoc(collection(db, path), {
+        ...values,
+        date: new Date().toLocaleString(), // Keep legacy date string for UI
+        timestamp: serverTimestamp(),
+      });
+      
+      setShowSuccessModal(true);
+      form.reset();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'contact_messages');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -202,11 +210,20 @@ export function Contact() {
 
                 <Button 
                   type="submit" 
-                  disabled={!form.formState.isValid}
+                  disabled={!form.formState.isValid || isSubmitting}
                   className="w-full h-12 rounded-md text-xs font-mono font-bold uppercase tracking-[0.2em] bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  EXECUTE_SEND
-                  <Send className="ml-2 w-3 h-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                  {isSubmitting ? (
+                    <>
+                      TRANSMITTING...
+                      <Loader2 className="ml-2 w-3 h-3 animate-spin" />
+                    </>
+                  ) : (
+                    <>
+                      EXECUTE_SEND
+                      <Send className="ml-2 w-3 h-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                    </>
+                  )}
                 </Button>
               </form>
             </Form>

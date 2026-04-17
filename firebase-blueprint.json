@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "Infrastructure projects featured on the portfolio",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the project" },
+        "description": { "type": "string", "description": "Short summary of the project" },
+        "image": { "type": "string", "description": "URL to the project image" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Technology stack tags" },
+        "github": { "type": "string", "description": "GitHub repository URL" },
+        "link": { "type": "string", "description": "Live project URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the project was added" }
+      },
+      "required": ["title", "description", "image", "tags", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Technical logs and insights",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Headline of the log entry" },
+        "excerpt": { "type": "string", "description": "Short summary for the list view" },
+        "content": { "type": "string", "description": "Full markdown content of the post" },
+        "category": { "type": "string", "description": "Topic category (Networking, DevOps, etc.)" },
+        "date": { "type": "string", "description": "Display date (e.g. Oct 24, 2024)" },
+        "author": { "type": "string", "description": "Author name" },
+        "image": { "type": "string", "description": "Banner image URL" },
+        "published": { "type": "boolean", "description": "Whether the post is visible" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp for sorting" }
+      },
+      "required": ["title", "excerpt", "content", "category", "date", "author", "image", "published", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comments on posts or projects",
+      "type": "object",
+      "properties": {
+        "parentId": { "type": "string", "description": "ID of the post or project being commented on" },
+        "parentType": { "type": "string", "enum": ["post", "project"] },
+        "authorName": { "type": "string", "description": "Name of the commenter" },
+        "authorEmail": { "type": "string", "description": "Email of the commenter (private)" },
+        "content": { "type": "string", "description": "Comment text" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Time of comment" }
+      },
+      "required": ["parentId", "parentType", "authorName", "content", "createdAt"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Professional certifications and awards",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "issuer": { "type": "string" },
+        "date": { "type": "string" },
+        "image": { "type": "string" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "issuer", "date", "createdAt"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Messages from the contact form",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message", "createdAt"]
+    },
+    "AdminTask": {
+      "title": "AdminTask",
+      "description": "Internal tasks for dashboard management",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "priority", "status", "createdAt"]
+    },
+    "Skill": {
+      "title": "Skill",
+      "description": "Professional skills matrix items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "level": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "level", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collection of featured infrastructure projects"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of technical logs and blog posts"
+    },
+    "/certificates/{certId}": {
+      "schema": "Certificate",
+      "description": "Collection of professional certifications"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Global collection of comments linked to parents via parentId"
+    },
+    "/contact_messages/{msgId}": {
+      "schema": "ContactMessage",
+      "description": "Incoming user inquiries"
+    },
+    "/admin_tasks/{taskId}": {
+      "schema": "AdminTask",
+      "description": "Internal dashboard tasks"
+    },
+    "/skills/{skillId}": {
+      "schema": "Skill",
+      "description": "Professional skills matrix items"
+    }
+  }
+}

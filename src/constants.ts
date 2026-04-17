@@ -1,4 +1,4 @@
-import { Project, Skill, Certificate, Qualification } from './types';
+import { Project, Skill, Certificate, Qualification, BlogPost } from './types/index';
 
 export const PROJECTS: Project[] = [
   {
@@ -24,6 +24,84 @@ export const PROJECTS: Project[] = [
     image: 'https://picsum.photos/seed/devops/800/600',
     tags: ['Docker', 'Kubernetes', 'GitHub Actions', 'Terraform'],
     github: 'https://github.com'
+  }
+];
+
+export const BLOG_POSTS: BlogPost[] = [
+  {
+    id: '1',
+    title: 'Securing Enterprise Networks with Zero Trust',
+    excerpt: 'An in-depth look at implementing Zero Trust architecture in modern corporate environments.',
+    content: `
+      ## The Rise of Zero Trust
+      
+      Zero Trust is a security framework requiring all users, whether in or outside the organization's network, to be authenticated, authorized, and continuously validated for security configuration and posture before being granted or keeping access to applications and data.
+
+      ### Key Principles
+      - **Explicit verification**: Always authenticate and authorize based on all available data points.
+      - **Least privilege access**: Limit user access with Just-In-Time and Just-Enough-Access (JIT/JEA), risk-based adaptive polices, and data protection.
+      - **Assume breach**: Minimize impact surface and segment access. Verify end-to-end encryption and use analytics to get visibility, drive threat detection, and improve defenses.
+
+      ### Practical Implementation
+      Implementing Zero Trust isn't an overnight task. It requires a shift in mindset from network-based security to identity-based security. Start by identifying your "protect surface" – the sensitive data, applications, and services that matter most to your business.
+    `,
+    category: 'Networking',
+    date: 'Oct 24, 2024',
+    author: 'Jimmy Nyasulu',
+    image: 'https://picsum.photos/seed/security/800/600',
+    published: true
+  },
+  {
+    id: '2',
+    title: 'Next.js 15: What Developers Need to Know',
+    excerpt: 'Exploring the latest features in Next.js 15 and how they improve performance and DX.',
+    content: `
+      ## Next.js 15 is Here
+      
+      The latest version of Next.js brings several exciting updates that focus on performance, developer experience, and stability.
+
+      ### Major Features
+      - **React 19 support**: Full compatibility with the latest React features.
+      - **Turbopack Dev**: Stable development performance for large applications.
+      - **Caching Updates**: Improved fetch caching and request de-duplication.
+      - **New Form Component**: Enhanced <Form /> for better progressive enhancement.
+
+      ### Should You Upgrade?
+      For most projects, the move to Next.js 15 will be smooth, especially if you're already on the App Router. The performance gains in the development server alone make it worth considering.
+    `,
+    category: 'Development',
+    date: 'Oct 15, 2024',
+    author: 'Jimmy Nyasulu',
+    image: 'https://picsum.photos/seed/code/800/600',
+    published: true
+  },
+  {
+    id: '3',
+    title: 'Automating DevOps with GitHub Actions',
+    excerpt: 'A practical guide to building robust CI/CD pipelines for Laravel and React applications.',
+    content: `
+      ## DevOps Automation with Actions
+      
+      GitHub Actions has revolutionized how we think about CI/CD. It's integrated, powerful, and easy to scale.
+
+      ### Building a Pipeline
+      A typical pipeline involves several stages:
+      1. **Checkout Code**: Accessing the repository.
+      2. **Dependency Installation**: Running npm install or composer install.
+      3. **Testing**: Running unit and integration tests.
+      4. **Build**: Creating production-ready artifacts.
+      5. **Deployment**: Pushing to production servers or cloud providers.
+
+      ### Best Practices
+      - Keep your workflows modular using reusable workflows.
+      - Use environment-specific secrets for security.
+      - Optimize runs by caching dependencies.
+    `,
+    category: 'DevOps',
+    date: 'Sep 28, 2024',
+    author: 'Jimmy Nyasulu',
+    image: 'https://picsum.photos/seed/automation/800/600',
+    published: true
   }
 ];
 

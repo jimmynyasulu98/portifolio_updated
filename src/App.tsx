@@ -9,11 +9,12 @@ import { Blog } from './components/sections/Blog';
 import { Contact } from './components/sections/Contact';
 import { Admin } from './components/admin/Admin';
 import { ProjectDetail } from './pages/ProjectDetail';
+import { BlogDetail } from './pages/BlogDetail';
 
 export default function App() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
-  const isProjectDetailPage = location.pathname.startsWith('/projects/');
+  const isDetailView = location.pathname.startsWith('/projects/') || location.pathname.startsWith('/blog/');
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] selection:bg-[var(--color-accent)] selection:text-[var(--color-bg)]">
@@ -32,6 +33,7 @@ export default function App() {
           </main>
         } />
         <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/blog/:id" element={<BlogDetail />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
       

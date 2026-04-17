@@ -1,48 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Search, Filter, Calendar, User, ArrowRight } from 'lucide-react';
+import { Search, Calendar, ArrowRight, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-
-const MOCK_POSTS = [
-  {
-    id: '1',
-    title: 'Securing Enterprise Networks with Zero Trust',
-    excerpt: 'An in-depth look at implementing Zero Trust architecture in modern corporate environments.',
-    category: 'Networking',
-    date: 'Oct 24, 2024',
-    author: 'Jimmy Nyasulu',
-    image: 'https://picsum.photos/seed/security/800/600'
-  },
-  {
-    id: '2',
-    title: 'Next.js 15: What Developers Need to Know',
-    excerpt: 'Exploring the latest features in Next.js 15 and how they improve performance and DX.',
-    category: 'Development',
-    date: 'Oct 15, 2024',
-    author: 'Jimmy Nyasulu',
-    image: 'https://picsum.photos/seed/code/800/600'
-  },
-  {
-    id: '3',
-    title: 'Automating DevOps with GitHub Actions',
-    excerpt: 'A practical guide to building robust CI/CD pipelines for Laravel and React applications.',
-    category: 'DevOps',
-    date: 'Sep 28, 2024',
-    author: 'Jimmy Nyasulu',
-    image: 'https://picsum.photos/seed/automation/800/600'
-  }
-];
+import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { BlogPost } from '@/types';
 
 const CATEGORIES = ['All', 'Networking', 'Development', 'DevOps', 'AI'];
 
 export function Blog() {
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
 
-  const filteredPosts = MOCK_POSTS.filter(post => {
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'posts'), (snapshot) => {
+      const postsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as BlogPost[];
+      
+      const sortedData = postsData.sort((a, b) => {
+        const timeA = (a as any).createdAt?.seconds || 0;
+        const timeB = (b as any).createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      setPosts(sortedData);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'posts');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(search.toLowerCase()) || 
                          post.excerpt.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategory === 'All' || post.category === activeCategory;
@@ -89,44 +87,64 @@ export function Blog() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {filteredPosts.map((post, idx) => (
-            <motion.article
-              key={post.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="immersive-card group"
-            >
-              <div className="card-label">Log: {post.category}</div>
-              <div className="relative aspect-video overflow-hidden rounded-lg mb-6 border border-[var(--color-border)]">
-                <img
-                  src={post.image}
-                  alt={post.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-50 group-hover:opacity-100"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              
-              <div className="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider text-[var(--color-accent)] opacity-60 mb-4">
-                <span className="flex items-center gap-1"><Calendar size={12} /> {post.date}</span>
-              </div>
-              
-              <h4 className="text-2xl font-extrabold mb-4 group-hover:text-[var(--color-accent)] transition-colors leading-tight font-roboto">
-                {post.title}
-              </h4>
-              <p className="text-[var(--color-text-dim)] text-sm mb-8 line-clamp-2 leading-relaxed">
-                {post.excerpt}
-              </p>
-              
-              <Button variant="link" className="p-0 h-auto text-[var(--color-accent)] font-mono text-[10px] tracking-[0.2em] uppercase group/btn">
-                READ_FULL_LOG
-                <ArrowRight className="ml-2 w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
-              </Button>
-            </motion.article>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-[var(--color-accent)]" size={40} />
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="text-center py-20 border border-dashed border-[var(--color-border)] rounded-xl">
+            <Search className="mx-auto text-[var(--color-text-dim)] mb-4 opacity-20" size={48} />
+            <p className="text-[var(--color-text-dim)] font-mono text-sm uppercase tracking-widest">No logs found matching criteria</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {filteredPosts.map((post, idx) => (
+              <motion.article
+                key={post.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="immersive-card group"
+              >
+                <div className="card-label">Log: {post.category}</div>
+                <Link to={`/blog/${post.id}`} className="block">
+                  <div className="relative aspect-video overflow-hidden rounded-lg mb-6 border border-[var(--color-border)]">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-50 group-hover:opacity-100"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </Link>
+                
+                <div className="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider text-[var(--color-accent)] opacity-60 mb-4">
+                  <span className="flex items-center gap-1"><Calendar size={12} /> {post.date}</span>
+                </div>
+                
+                <Link to={`/blog/${post.id}`} className="block group">
+                  <h4 className="text-2xl font-extrabold mb-4 group-hover:text-[var(--color-accent)] transition-colors leading-tight font-roboto">
+                    {post.title}
+                  </h4>
+                </Link>
+                <p className="text-[var(--color-text-dim)] text-sm mb-8 line-clamp-2 leading-relaxed">
+                  {post.excerpt}
+                </p>
+                
+                <Link 
+                  to={`/blog/${post.id}`}
+                  className={cn(
+                    "p-0 h-auto text-[var(--color-accent)] font-mono text-[10px] tracking-[0.2em] uppercase group/btn inline-flex items-center"
+                  )}
+                >
+                  READ_FULL_LOG
+                  <ArrowRight className="ml-2 w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
+                </Link>
+              </motion.article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

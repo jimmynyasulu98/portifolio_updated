@@ -7,250 +7,512 @@ import {
   Save, 
   Trash2, 
   LogOut, 
-  Settings, 
+  Settings as SettingsIcon, 
   CheckSquare, 
   MessageSquare,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Package,
+  ShieldCheck,
+  Search,
+  ChevronRight,
+  Globe,
+  Tag,
+  User,
+  Award,
+  Edit,
+  X,
+  Loader2,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  onAuthStateChanged,
+  User as FirebaseUser 
+} from 'firebase/auth';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { BlogPost, Project, Certificate, Skill } from '@/types/index';
+import { BLOG_POSTS, PROJECTS, CERTIFICATES, SKILLS } from '@/constants';
 
-interface Task {
-  id: string;
-  title: string;
-  status: 'pending' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-  dueDate: string;
-}
-
-interface Message {
-  id: string;
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-  date: string;
-}
+const ADMIN_EMAIL = "Jimmynyasulu98@gmail.com";
 
 export function Admin() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [password, setPassword] = useState('');
-  const [resetKey, setResetKey] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showReset, setShowReset] = useState(false);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newTask, setNewTask] = useState({ title: '', priority: 'medium', dueDate: '' });
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState({ title: '', priority: 'medium' });
-  
-  const [changePasswordData, setChangePasswordData] = useState({ current: '', new: '', confirm: '' });
-  const [changePasswordStatus, setChangePasswordStatus] = useState({ type: '', message: '' });
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+
+  // Editing states
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingCert, setEditingCert] = useState<Certificate | null>(null);
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+
+  // Form states
+  const [newPost, setNewPost] = useState({ 
+    title: '', excerpt: '', content: '', category: 'Networking', image: '', published: true 
+  });
+  const [newProject, setNewProject] = useState({ 
+    title: '', description: '', image: '', tags: '', github: '', link: '' 
+  });
+  const [newCert, setNewCert] = useState({ 
+    name: '', issuer: '', date: '', image: '', link: '' 
+  });
+  const [newSkill, setNewSkill] = useState({ 
+    name: '', category: 'Frontend', level: 80 
+  });
+  const [newTask, setNewTask] = useState({ title: '', priority: 'medium' });
 
   useEffect(() => {
-    const savedTasks = localStorage.getItem('admin_tasks');
-    const savedMessages = localStorage.getItem('contact_messages');
-    const authStatus = sessionStorage.getItem('admin_auth');
-    
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-    if (savedMessages) setMessages(JSON.parse(savedMessages));
-    if (authStatus === 'true') setIsLoggedIn(true);
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setIsAdmin(u?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!isAdmin || !user) return;
+
+    // Small delay to ensure the database recognizes your login token
+    const timer = setTimeout(() => {
+      const unsubPosts = onSnapshot(query(collection(db, 'posts'), orderBy('createdAt', 'desc')), (snap) => {
+        setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
+
+      const unsubProjects = onSnapshot(query(collection(db, 'projects'), orderBy('createdAt', 'desc')), (snap) => {
+        setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'projects'));
+
+      const unsubMessages = onSnapshot(query(collection(db, 'contact_messages'), orderBy('createdAt', 'desc')), (snap) => {
+        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'contact_messages'));
+
+      const unsubTasks = onSnapshot(query(collection(db, 'admin_tasks'), orderBy('createdAt', 'desc')), (snap) => {
+        setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'admin_tasks'));
+
+      const unsubCerts = onSnapshot(collection(db, 'certificates'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Certificate));
+        const sortedData = data.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds || 0;
+          const timeB = b.createdAt?.seconds || 0;
+          return timeB - timeA;
+        });
+        setCertificates(sortedData);
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'certificates'));
+
+      const unsubSkills = onSnapshot(query(collection(db, 'skills'), orderBy('category', 'asc')), (snap) => {
+        setSkills(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Skill)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'skills'));
+
+      // Use a global to store unsubs for simple cleanup
+      (window as any)._adminUnsubs = [unsubPosts, unsubProjects, unsubMessages, unsubTasks, unsubCerts, unsubSkills];
+    }, 1500);
+
+    return () => {
+      clearTimeout(timer);
+      if ((window as any)._adminUnsubs) {
+        (window as any)._adminUnsubs.forEach((u: any) => u && u());
+        delete (window as any)._adminUnsubs;
+      }
+    };
+  }, [isAdmin, user]);
+
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err: any) {
+      console.error('Login Error:', err);
+      setError(`AUTH_ERR: ${err.code || err.message}`);
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
+
+  const createPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPassword = localStorage.getItem('admin_password') || 'admin';
-    if (password === correctPassword) {
-      setIsLoggedIn(true);
-      sessionStorage.setItem('admin_auth', 'true');
-      setError('');
-    } else {
-      setError('Invalid password');
+    setIsSaving(true);
+    setSuccess('');
+    try {
+      if (editingPost) {
+        await updateDoc(doc(db, 'posts', editingPost.id), {
+          ...newPost,
+          updatedAt: serverTimestamp()
+        });
+        setEditingPost(null);
+        setSuccess('Technical Log updated successfully!');
+      } else {
+        await addDoc(collection(db, 'posts'), {
+          ...newPost,
+          author: user?.displayName || 'Jimmy Nyasulu',
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          createdAt: serverTimestamp()
+        });
+        setSuccess('Technical Log shared to archive!');
+      }
+      setNewPost({ title: '', excerpt: '', content: '', category: 'Networking', image: '', published: true });
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      handleFirestoreError(err, editingPost ? OperationType.UPDATE : OperationType.CREATE, 'posts');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const createProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const currentStored = localStorage.getItem('admin_password') || 'admin';
-    
-    if (changePasswordData.current !== currentStored) {
-      setChangePasswordStatus({ type: 'error', message: 'Current password is incorrect' });
-      return;
+    setIsSaving(true);
+    setSuccess('');
+    try {
+      const data = {
+        ...newProject,
+        tags: typeof newProject.tags === 'string' 
+          ? newProject.tags.split(',').map(t => t.trim()).filter(Boolean)
+          : newProject.tags,
+      };
+
+      if (editingProject) {
+        await updateDoc(doc(db, 'projects', editingProject.id), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
+        setEditingProject(null);
+        setSuccess('Infrastructure project updated!');
+      } else {
+        await addDoc(collection(db, 'projects'), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+        setSuccess('New infrastructure indexed successfully!');
+      }
+      setNewProject({ title: '', description: '', image: '', tags: '', github: '', link: '' });
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      handleFirestoreError(err, editingProject ? OperationType.UPDATE : OperationType.CREATE, 'projects');
+    } finally {
+      setIsSaving(false);
     }
-    
-    if (changePasswordData.new !== changePasswordData.confirm) {
-      setChangePasswordStatus({ type: 'error', message: 'New passwords do not match' });
-      return;
-    }
-    
-    if (changePasswordData.new.length < 4) {
-      setChangePasswordStatus({ type: 'error', message: 'Password must be at least 4 characters' });
-      return;
-    }
-    
-    localStorage.setItem('admin_password', changePasswordData.new);
-    setChangePasswordStatus({ type: 'success', message: 'Password updated successfully' });
-    setChangePasswordData({ current: '', new: '', confirm: '' });
   };
 
-  const handleReset = (e: React.FormEvent) => {
+  const createCert = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would be a server-side check. 
-    // For this environment, we use the key provided by the user.
-    const validResetKey = "password-reset-key-2026"; 
-    
-    if (resetKey === validResetKey) {
-      localStorage.setItem('admin_password', newPassword);
-      setShowReset(false);
-      setError('Password reset successful. Please login.');
-      setResetKey('');
-      setNewPassword('');
-    } else {
-      setError('Invalid reset key');
+    setIsSaving(true);
+    setSuccess('');
+    try {
+      if (editingCert) {
+        await updateDoc(doc(db, 'certificates', editingCert.id), {
+          ...newCert,
+          updatedAt: serverTimestamp()
+        });
+        setEditingCert(null);
+        setSuccess('Certification updated successfully!');
+      } else {
+        const docRef = await addDoc(collection(db, 'certificates'), {
+          ...newCert,
+          createdAt: serverTimestamp()
+        });
+        console.log("Certificate Created in Firestore. ID:", docRef.id);
+        setSuccess(`New certification added live! (Ref: ${docRef.id})`);
+      }
+      setNewCert({ name: '', issuer: '', date: '', image: '', link: '' });
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      handleFirestoreError(err, editingCert ? OperationType.UPDATE : OperationType.CREATE, 'certificates');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    sessionStorage.removeItem('admin_auth');
+  const seedSkills = async () => {
+    if (!confirm('This will import all skills from the default template. Proceed?')) return;
+    setIsSaving(true);
+    setSuccess('');
+    setError('');
+    try {
+      for (const skill of SKILLS) {
+        await addDoc(collection(db, 'skills'), { 
+          ...skill, 
+          createdAt: serverTimestamp() 
+        });
+      }
+      setSuccess('Skills Matrix successfully imported!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'skills');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  if (!isLoggedIn) {
+  const createSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setSuccess('');
+    try {
+      if (editingSkill) {
+        await updateDoc(doc(db, 'skills', editingSkill.id!), {
+          ...newSkill,
+          updatedAt: serverTimestamp()
+        });
+        setEditingSkill(null);
+        setSuccess('Skill updated successfully!');
+      } else {
+        await addDoc(collection(db, 'skills'), {
+          ...newSkill,
+          createdAt: serverTimestamp()
+        });
+        setSuccess('New skill added to matrix!');
+      }
+      setNewSkill({ name: '', category: 'Frontend', level: 80 });
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      handleFirestoreError(err, editingSkill ? OperationType.UPDATE : OperationType.CREATE, 'skills');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const seedData = async () => {
+    if (!confirm('This will seed sample data into your database. Existing data will remain. Proceed?')) return;
+    try {
+      for (const post of BLOG_POSTS) {
+        const { id, ...postData } = post;
+        await addDoc(collection(db, 'posts'), { 
+          ...postData, 
+          createdAt: serverTimestamp(),
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        });
+      }
+      for (const project of PROJECTS) {
+        const { id, ...projectData } = project;
+        await addDoc(collection(db, 'projects'), { ...projectData, createdAt: serverTimestamp() });
+      }
+      for (const cert of CERTIFICATES) {
+        const { id, ...certData } = cert;
+        await addDoc(collection(db, 'certificates'), { ...certData, createdAt: serverTimestamp() });
+      }
+      for (const skill of SKILLS) {
+        await addDoc(collection(db, 'skills'), { ...skill, createdAt: serverTimestamp() });
+      }
+      setSuccess('Database successfully hydrated with sample knowledge!');
+    } catch (err) {
+      console.error("Hydration Error:", err);
+      alert('DATABASE_HYDRATION_FAILED: Check console.');
+    }
+  };
+
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.title) return;
+    try {
+      await addDoc(collection(db, 'admin_tasks'), {
+        ...newTask,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      setNewTask({ title: '', priority: 'medium' });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'admin_tasks');
+    }
+  };
+
+  const deleteItem = async (col: string, id: string) => {
+    if (!confirm('Permanent deletion requested. Proceed?')) return;
+    try {
+      await deleteDoc(doc(db, col, id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, col);
+    }
+  };
+
+  const startEditPost = (post: BlogPost) => {
+    setEditingPost(post);
+    setNewPost({
+      title: post.title,
+      excerpt: post.excerpt,
+      content: post.content,
+      category: post.category,
+      image: post.image,
+      published: post.published
+    });
+    setActiveTab('posts');
+  };
+
+  const startEditProject = (project: Project) => {
+    setEditingProject(project);
+    setNewProject({
+      title: project.title,
+      description: project.description,
+      image: project.image,
+      tags: project.tags.join(', '),
+      github: project.github || '',
+      link: project.link || ''
+    });
+    setActiveTab('projects');
+  };
+
+  const startEditCert = (cert: Certificate) => {
+    setEditingCert(cert);
+    setNewCert({
+      name: cert.name,
+      issuer: cert.issuer,
+      date: cert.date,
+      image: cert.image || '',
+      link: cert.link || ''
+    });
+    setActiveTab('certificates');
+  };
+
+  const startEditSkill = (skill: Skill) => {
+    setEditingSkill(skill);
+    setNewSkill({
+      name: skill.name,
+      category: skill.category,
+      level: skill.level
+    });
+    setActiveTab('skills');
+  };
+
+  const cancelEdit = () => {
+    setEditingPost(null);
+    setEditingProject(null);
+    setEditingCert(null);
+    setEditingSkill(null);
+    setNewPost({ title: '', excerpt: '', content: '', category: 'Networking', image: '', published: true });
+    setNewProject({ title: '', description: '', image: '', tags: '', github: '', link: '' });
+    setNewCert({ name: '', issuer: '', date: '', image: '', link: '' });
+    setNewSkill({ name: '', category: 'Frontend', level: 80 });
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-[var(--color-accent)] font-mono">INITIALIZING_PROTOCOL...</div>;
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-roboto">
         <Card className="w-full max-w-md border-none shadow-xl overflow-hidden">
           <div className="h-2 bg-[var(--color-accent)] w-full" />
           <CardHeader className="pt-10 pb-6 text-center">
             <div className="w-16 h-16 bg-[var(--color-accent-dim)] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Settings size={32} className="text-[var(--color-accent)]" />
+              <ShieldCheck size={32} className="text-[var(--color-accent)]" />
             </div>
             <CardTitle className="text-3xl font-extrabold text-slate-900">ADMIN_ACCESS</CardTitle>
             <p className="text-slate-500 text-sm font-mono uppercase tracking-widest mt-2">
-              {showReset ? 'Protocol: Password Reset' : 'Protocol: Authentication Required'}
+              Identity Verification Required
             </p>
           </CardHeader>
           <CardContent className="px-10 pb-10">
-            {showReset ? (
-              <form onSubmit={handleReset} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Reset Key</label>
-                  <Input 
-                    type="password" 
-                    placeholder="ENTER_RESET_KEY"
-                    value={resetKey}
-                    onChange={(e) => setResetKey(e.target.value)}
-                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">New Password</label>
-                  <Input 
-                    type="password" 
-                    placeholder="NEW_PASSWORD"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
-                  />
-                </div>
-                {error && <p className="text-xs font-bold text-red-500 mt-2">{error}</p>}
-                <Button type="submit" className="w-full h-12 bg-[var(--color-accent)] font-bold uppercase tracking-widest mt-4">
-                  RESET_PASSWORD
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  onClick={() => { setShowReset(false); setError(''); }}
-                  className="w-full text-slate-500 font-bold"
+            <div className="space-y-6">
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4 text-amber-700 text-sm rounded">
+                Restricted to authorized identity: <br/> <strong>{ADMIN_EMAIL}</strong>
+              </div>
+              
+              <Button 
+                onClick={handleLogin} 
+                className="w-full h-12 bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 font-bold flex items-center justify-center gap-3 transition-all active:scale-95"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                SIGN_IN_WITH_GOOGLE
+              </Button>
+
+              <div className="flex justify-center">
+                <a 
+                  href={window.location.href} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-mono text-[var(--color-accent)] hover:underline flex items-center gap-1"
                 >
-                  BACK_TO_LOGIN
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Access Password</label>
-                  <Input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 border-slate-200 focus:border-[var(--color-accent)] font-mono"
-                  />
-                </div>
-                {error && <p className="text-xs font-bold text-red-500 mt-2">{error}</p>}
-                <Button type="submit" className="w-full h-12 bg-[var(--color-accent)] font-bold uppercase tracking-widest mt-4">
-                  EXECUTE_LOGIN
-                </Button>
-                <div className="text-center mt-6">
-                  <button 
-                    type="button"
-                    onClick={() => { setShowReset(true); setError(''); }}
-                    className="text-[10px] font-mono uppercase tracking-widest text-slate-400 hover:text-[var(--color-accent)] transition-colors"
-                  >
-                    Forgot Password? Reset Protocol
-                  </button>
-                </div>
-              </form>
-            )}
+                  <Globe size={10} /> OPEN_IN_NEW_TAB_FOR_POPUP
+                </a>
+              </div>
+
+              <div className="text-[10px] text-slate-400 font-mono space-y-2 text-center border-t pt-4">
+                <p>PRO_TIP: If popup fails to appear, try Opening App in a New Tab.</p>
+                <p>Ensure current domain is authorized in Firebase Console.</p>
+              </div>
+
+              {error && <p className="text-red-500 text-xs font-bold text-center mt-4 p-2 bg-red-50 border border-red-100 rounded">ERROR: {error}</p>}
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const saveTasks = (updatedTasks: Task[]) => {
-    setTasks(updatedTasks);
-    localStorage.setItem('admin_tasks', JSON.stringify(updatedTasks));
-  };
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-roboto">
+        <Card className="w-full max-w-md border-none shadow-xl overflow-hidden">
+          <div className="h-2 bg-red-500 w-full" />
+          <CardHeader className="pt-10 pb-6 text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} className="text-red-500" />
+            </div>
+            <CardTitle className="text-3xl font-extrabold text-slate-900">ACCESS_DENIED</CardTitle>
+            <p className="text-slate-500 text-sm font-mono uppercase tracking-widest mt-2">
+              Unauthorized Identity Detected
+            </p>
+          </CardHeader>
+          <CardContent className="px-10 pb-10">
+            <div className="space-y-6">
+              <div className="p-4 bg-slate-100 rounded text-slate-600 text-sm flex gap-3">
+                <img src={user.photoURL || ''} className="w-10 h-10 rounded-full" alt="" />
+                <div>
+                  <p className="font-bold">{user.displayName}</p>
+                  <p className="text-xs">{user.email}</p>
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-500 leading-relaxed text-center">
+                The identity provided does not match the master administrative credentials.
+                Please sign out and use the authorized account.
+              </p>
 
-  const addTask = () => {
-    if (!newTask.title) return;
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      status: 'pending',
-      priority: newTask.priority as any,
-      dueDate: newTask.dueDate || new Date().toISOString().split('T')[0]
-    };
-    saveTasks([...tasks, task]);
-    setNewTask({ title: '', priority: 'medium', dueDate: '' });
-  };
-
-  const deleteTask = (id: string) => {
-    saveTasks(tasks.filter(t => t.id !== id));
-  };
-
-  const startEditing = (task: Task) => {
-    setEditingTaskId(task.id);
-    setEditValue({ title: task.title, priority: task.priority });
-  };
-
-  const saveEdit = () => {
-    if (!editingTaskId) return;
-    saveTasks(tasks.map(t => t.id === editingTaskId ? { ...t, title: editValue.title, priority: editValue.priority as any } : t));
-    setEditingTaskId(null);
-  };
-
-  const toggleTaskStatus = (id: string) => {
-    saveTasks(tasks.map(t => {
-      if (t.id === id) {
-        const statuses: Task['status'][] = ['pending', 'in-progress', 'completed'];
-        const currentIndex = statuses.indexOf(t.status);
-        const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-        return { ...t, status: nextStatus };
-      }
-      return t;
-    }));
-  };
+              <Button 
+                onClick={handleLogout} 
+                variant="outline"
+                className="w-full h-12 border-slate-200 text-slate-900 font-bold hover:bg-slate-50"
+              >
+                TERMINATE_SESSION & TRY_AGAIN
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-roboto">
@@ -261,6 +523,13 @@ export function Admin() {
             <LayoutDashboard className="text-[var(--color-accent)]" />
             ADMIN_CORE
           </h1>
+          <div className="flex items-center gap-2 mt-4 px-1 py-1 bg-slate-50 rounded border border-slate-100 overflow-hidden">
+            <img src={user.photoURL || ''} className="w-6 h-6 rounded-full" alt="" />
+            <div className="overflow-hidden">
+              <p className="text-[10px] font-bold text-slate-700 truncate">{user.displayName}</p>
+              <p className="text-[8px] text-slate-400 truncate">{user.email}</p>
+            </div>
+          </div>
         </div>
         
         <nav className="flex-1 p-4 space-y-1">
@@ -268,9 +537,11 @@ export function Admin() {
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { id: 'tasks', label: 'Task Manager', icon: CheckSquare },
             { id: 'messages', label: 'User Messages', icon: MessageSquare },
-            { id: 'posts', label: 'Blog Posts', icon: FileText },
-            { id: 'projects', label: 'Projects', icon: Plus },
-            { id: 'settings', label: 'Settings', icon: Settings },
+            { id: 'posts', label: 'Tech Logs', icon: FileText },
+            { id: 'projects', label: 'Featured Infra', icon: Package },
+            { id: 'certificates', label: 'Certifications', icon: Award },
+            { id: 'skills', label: 'Skills Matrix', icon: Zap },
+            { id: 'settings', label: 'Settings', icon: SettingsIcon },
           ].map((item) => (
             <Button 
               key={item.id}
@@ -304,11 +575,99 @@ export function Admin() {
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
           <h2 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">{activeTab.replace('-', ' ')}</h2>
           <div className="flex items-center gap-4">
-            <Badge variant="outline" className="font-mono text-[10px] border-green-200 text-green-600 bg-green-50">SYSTEM_ONLINE</Badge>
+            <Badge variant="outline" className="font-mono text-[10px] border-green-200 text-green-600 bg-green-50 uppercase">Session Active</Badge>
           </div>
         </header>
 
         <div className="p-8 max-w-6xl mx-auto">
+          {success && (
+            <div className="mb-6 bg-green-500 text-white p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+              <CheckCircle2 size={20} />
+              <p className="font-bold text-sm tracking-wide uppercase">{success}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 bg-red-500 text-white p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 relative group">
+              <AlertCircle size={20} />
+              <div className="flex-1">
+                <p className="font-bold text-sm tracking-wide uppercase">System Error Detected</p>
+                <p className="text-[10px] font-mono opacity-80 break-all">{error}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setError('')} className="text-white hover:bg-white/20">
+                <X size={16} />
+              </Button>
+            </div>
+          )}
+
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {[
+                  { label: 'Infrastructure', count: projects.length, icon: Package, color: 'bg-blue-500' },
+                  { label: 'Tech Logs', count: posts.length, icon: FileText, color: 'bg-purple-500' },
+                  { label: 'Certs', count: certificates.length, icon: Award, color: 'bg-indigo-500' },
+                  { label: 'Skills', count: skills.length, icon: Zap, color: 'bg-cyan-500' },
+                  { label: 'Messages', count: messages.length, icon: MessageSquare, color: 'bg-emerald-500' },
+                  { label: 'Active Tasks', count: tasks.length, icon: CheckSquare, color: 'bg-amber-500' },
+                ].map(stat => (
+                  <Card key={stat.label} className={cn("border-none shadow-sm text-white", stat.color)}>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-2">{stat.label}</p>
+                          <h3 className="text-4xl font-extrabold">{stat.count}</h3>
+                        </div>
+                        <stat.icon size={24} className="text-white/30" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              
+              <div className="grid lg:grid-cols-2 gap-6">
+                <Card className="border-none shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-extrabold">Recent Technical Activities</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {tasks.slice(0, 5).map(task => (
+                        <div key={task.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <CheckCircle2 size={16} className={task.status === 'completed' ? 'text-green-500' : 'text-slate-300'} />
+                          <span className={cn("text-sm font-bold flex-1", task.status === 'completed' && "line-through text-slate-400")}>{task.title}</span>
+                          <Badge variant="outline" className="text-[9px] uppercase">{task.priority}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-extrabold">Latest Security Logs</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4 font-mono text-[10px]">
+                      <div className="flex justify-between border-b pb-2">
+                        <span className="text-slate-400">SIGN_IN_EVENT</span>
+                        <span className="text-green-600 font-bold">SUCCESS</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-2">
+                        <span className="text-slate-400">IP_PROTOCOL</span>
+                        <span className="text-slate-600">STATIC_ASSIGNED</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-2">
+                        <span className="text-slate-400">DATABASE_LINK</span>
+                        <span className="text-blue-600 font-bold">FIRESTORE_ACTIVE</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'tasks' && (
             <div className="space-y-8">
               <Card className="border-none shadow-sm">
@@ -316,7 +675,7 @@ export function Admin() {
                   <CardTitle className="text-xl font-extrabold">Add New Task</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-4 gap-4 items-end">
+                  <form onSubmit={addTask} className="grid md:grid-cols-4 gap-4 items-end">
                     <div className="md:col-span-2 space-y-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Task Description</label>
                       <Input 
@@ -328,7 +687,7 @@ export function Admin() {
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Priority</label>
                       <select 
-                        className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                       >
@@ -337,94 +696,415 @@ export function Admin() {
                         <option value="high">High</option>
                       </select>
                     </div>
-                    <Button onClick={addTask} className="bg-[var(--color-accent)] font-bold">
+                    <Button type="submit" className="bg-[var(--color-accent)] font-bold h-10">
                       <Plus size={18} className="mr-2" /> ADD_TASK
                     </Button>
-                  </div>
+                  </form>
                 </CardContent>
               </Card>
 
               <div className="grid gap-4">
-                <h3 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">Active Tasks ({tasks.length})</h3>
-                {tasks.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-slate-200">
-                    <CheckSquare className="mx-auto text-slate-300 mb-4" size={48} />
-                    <p className="text-slate-500 font-bold">No tasks found. Start by adding one above.</p>
-                  </div>
-                ) : (
-                  tasks.map((task) => (
-                    <Card key={task.id} className="border-none shadow-sm hover:shadow-md transition-shadow">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <button 
-                            onClick={() => toggleTaskStatus(task.id)}
-                            className={cn(
-                              "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
-                              task.status === 'completed' ? "bg-green-500 border-green-500 text-white" : "border-slate-300 hover:border-[var(--color-accent)]"
-                            )}
-                          >
-                            {task.status === 'completed' && <CheckCircle2 size={14} />}
-                          </button>
-                          
-                          {editingTaskId === task.id ? (
-                            <div className="flex-1 flex gap-2 items-center">
-                              <Input 
-                                value={editValue.title}
-                                onChange={(e) => setEditValue({ ...editValue, title: e.target.value })}
-                                className="h-8 text-sm"
-                              />
-                              <select 
-                                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm"
-                                value={editValue.priority}
-                                onChange={(e) => setEditValue({ ...editValue, priority: e.target.value as any })}
-                              >
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                              </select>
-                              <Button size="sm" onClick={saveEdit} className="h-8 bg-green-500 hover:bg-green-600">
-                                <Save size={14} />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingTaskId(null)} className="h-8">
-                                <AlertCircle size={14} />
-                              </Button>
-                            </div>
-                          ) : (
+                {tasks.map((task) => (
+                  <Card key={task.id} className="border-none shadow-sm">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "w-2 h-10 rounded-full",
+                          task.priority === 'high' ? 'bg-red-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
+                        )} />
+                        <div>
+                          <h4 className="font-bold">{task.title}</h4>
+                          <span className="text-[10px] uppercase font-mono text-slate-400">{task.priority} Priority</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => deleteItem('admin_tasks', task.id)} className="text-slate-300 hover:text-red-500">
+                        <Trash2 size={18} />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'posts' && (
+            <div className="space-y-8">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-extrabold flex items-center gap-2">
+                    <FileText className="text-[var(--color-accent)]" /> 
+                    {editingPost ? 'Update Technical Log' : 'Publish Technical Log'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={createPost} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Headline</label>
+                        <Input 
+                          placeholder="Optimization of Micro-Services..." 
+                          value={newPost.title}
+                          onChange={e => setNewPost({...newPost, title: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Category</label>
+                        <Input 
+                          placeholder="DevOps / Networking" 
+                          value={newPost.category}
+                          onChange={e => setNewPost({...newPost, category: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Excerpt</label>
+                      <Input 
+                        placeholder="Short summary for archive view" 
+                        value={newPost.excerpt}
+                        onChange={e => setNewPost({...newPost, excerpt: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Banner Image URL</label>
+                      <Input 
+                        placeholder="https://images.unsplash.com/..." 
+                        value={newPost.image}
+                        onChange={e => setNewPost({...newPost, image: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">MD Content</label>
+                      <Textarea 
+                        placeholder="Entry technical details (Markdown Supported)" 
+                        className="min-h-[300px] font-mono text-xs"
+                        value={newPost.content}
+                        onChange={e => setNewPost({...newPost, content: e.target.value})}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={isSaving} className="bg-[var(--color-accent)] font-bold px-8 flex items-center gap-2">
+                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : (editingPost ? <Save size={18} /> : <Plus size={18} />)} 
+                        {isSaving ? 'SYNCHRONIZING...' : (editingPost ? 'UPDATE_ENTRY' : 'PUBLISH_TO_ARCHIVE')}
+                      </Button>
+                      {editingPost && (
+                        <Button variant="ghost" onClick={cancelEdit} className="ml-2 font-bold">CANCEL</Button>
+                      )}
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-4">
+                {posts.map(post => (
+                  <Card key={post.id} className="border-none shadow-sm">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <img src={post.image} className="w-12 h-12 rounded object-cover border" alt="" referrerPolicy="no-referrer" />
+                        <div className="overflow-hidden">
+                          <h4 className="font-bold truncate">{post.title}</h4>
+                          <p className="text-[10px] text-slate-400 uppercase font-mono">{post.category} • {post.date}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => startEditPost(post)} className="text-slate-300 hover:text-[var(--color-accent)]">
+                          <Edit size={18} />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteItem('posts', post.id)} className="text-slate-300 hover:text-red-500">
+                          <Trash2 size={18} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'projects' && (
+            <div className="space-y-8">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-extrabold flex items-center gap-2">
+                    <Package className="text-[var(--color-accent)]" />
+                    {editingProject ? 'Update Infrastructure Design' : 'Archive Featured Infrastructure'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={createProject} className="space-y-4">
+                    <Input 
+                      placeholder="Infrastructure Design Title" 
+                      value={newProject.title}
+                      onChange={e => setNewProject({...newProject, title: e.target.value})}
+                    />
+                    <Textarea 
+                      placeholder="Technical overview and architectual details..." 
+                      className="min-h-[120px]"
+                      value={newProject.description}
+                      onChange={e => setNewProject({...newProject, description: e.target.value})}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Image URL" 
+                        value={newProject.image}
+                        onChange={e => setNewProject({...newProject, image: e.target.value})}
+                      />
+                      <Input 
+                        placeholder="Tags (Docker, AWS, Cisco)" 
+                        value={newProject.tags}
+                        onChange={e => setNewProject({...newProject, tags: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Git Repository" 
+                        value={newProject.github}
+                        onChange={e => setNewProject({...newProject, github: e.target.value})}
+                      />
+                      <Input 
+                        placeholder="Live Deployment" 
+                        value={newProject.link}
+                        onChange={e => setNewProject({...newProject, link: e.target.value})}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={isSaving} className="bg-[var(--color-accent)] font-bold px-8 flex items-center gap-2">
+                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : (editingProject ? <Save size={18} /> : <Plus size={18} />)} 
+                        {isSaving ? 'SYNCHRONIZING...' : (editingProject ? 'UPDATE_ARCHIVE' : 'ARCHIVE_PROJECT')}
+                      </Button>
+                      {editingProject && (
+                        <Button variant="ghost" onClick={cancelEdit} className="font-bold">CANCEL</Button>
+                      )}
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {projects.map(project => (
+                  <Card key={project.id} className="border-none shadow-sm overflow-hidden flex flex-col">
+                    <div className="aspect-video relative overflow-hidden">
+                      <img src={project.image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button variant="secondary" size="icon" onClick={() => startEditProject(project)}>
+                          <Edit size={16} />
+                        </Button>
+                        <Button variant="destructive" size="icon" onClick={() => deleteItem('projects', project.id)}>
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-4 flex-1">
+                      <h4 className="font-bold text-lg mb-2">{project.title}</h4>
+                      <p className="text-xs text-slate-500 line-clamp-2 mb-4">{project.description}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {project.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'certificates' && (
+            <div className="space-y-8">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-extrabold flex items-center gap-2">
+                    <Award className="text-[var(--color-accent)]" />
+                    {editingCert ? 'Update Credential' : 'Register New Credential'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={createCert} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Certification Name" 
+                        value={newCert.name}
+                        onChange={e => setNewCert({...newCert, name: e.target.value})}
+                      />
+                      <Input 
+                        placeholder="Issuing Organization" 
+                        value={newCert.issuer}
+                        onChange={e => setNewCert({...newCert, issuer: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <Input 
+                        placeholder="Date (e.g. 2024)" 
+                        value={newCert.date}
+                        onChange={e => setNewCert({...newCert, date: e.target.value})}
+                      />
+                      <Input 
+                        placeholder="Credential Image URL" 
+                        value={newCert.image}
+                        onChange={e => setNewCert({...newCert, image: e.target.value})}
+                      />
+                      <Input 
+                        placeholder="Verify Link (Optional)" 
+                        value={newCert.link}
+                        onChange={e => setNewCert({...newCert, link: e.target.value})}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={isSaving} className="bg-[var(--color-accent)] font-bold px-8 flex items-center gap-2">
+                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : (editingCert ? <Save size={18} /> : <Plus size={18} />)} 
+                        {isSaving ? 'SYNCHRONIZING...' : (editingCert ? 'UPDATE_CREDENTIAL' : 'REGISTER_CREDENTIAL')}
+                      </Button>
+                      {editingCert && (
+                        <Button variant="ghost" onClick={cancelEdit} className="font-bold">CANCEL</Button>
+                      )}
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="grid md:grid-cols-3 gap-6">
+                {certificates.map(cert => (
+                  <Card key={cert.id} className="border-none shadow-sm overflow-hidden flex flex-col">
+                    <div className="aspect-[4/3] relative overflow-hidden bg-slate-100 flex items-center justify-center">
+                      <img src={cert.image || 'https://picsum.photos/seed/cert/400/300'} alt="" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button variant="secondary" size="icon" className="w-8 h-8" onClick={() => startEditCert(cert)}>
+                          <Edit size={14} />
+                        </Button>
+                        <Button variant="destructive" size="icon" className="w-8 h-8" onClick={() => deleteItem('certificates', cert.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-4">
+                      <h4 className="font-bold text-sm truncate">{cert.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-mono uppercase">{cert.issuer} • {cert.date}</p>
+                      {cert.link && (
+                        <a 
+                          href={cert.link} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-[10px] text-[var(--color-accent)] hover:underline flex items-center gap-1 mt-2 font-bold"
+                        >
+                          REGISTERED_VERIFICATION <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'skills' && (
+            <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">Skills Matrix</h3>
+                  <p className="text-sm text-slate-500 font-mono mt-1 uppercase tracking-tight">Manage Technical Expertise Registry ({skills.length} Items)</p>
+                </div>
+                {skills.length === 0 && (
+                  <Button 
+                    onClick={seedSkills} 
+                    variant="outline" 
+                    className="border-[var(--color-accent)] text-[var(--color-accent)] font-bold gap-2"
+                  >
+                    <Plus size={16} /> IMPORT_TEMPLATE_SKILLS
+                  </Button>
+                )}
+              </div>
+
+              <Card className="border-none shadow-sm overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)]">
+                <CardHeader>
+                  <CardTitle className="text-xl font-extrabold flex items-center gap-2">
+                    <Zap className="text-[var(--color-accent)]" />
+                    {editingSkill ? 'Refine Expertise' : 'Register New Skill'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={createSkill} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        placeholder="Skill Name (e.g. Next.js)" 
+                        value={newSkill.name}
+                        onChange={e => setNewSkill({...newSkill, name: e.target.value})}
+                      />
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                        value={newSkill.category}
+                        onChange={e => setNewSkill({...newSkill, category: e.target.value as any})}
+                      >
+                        <option value="Frontend">Frontend</option>
+                        <option value="Backend">Backend</option>
+                        <option value="DevOps">DevOps</option>
+                        <option value="Networking">Networking</option>
+                        <option value="AI">AI</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs font-mono font-bold">
+                        <span>PROFICIENCY_LEVEL</span>
+                        <span>{newSkill.level}%</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="0"
+                        max="100"
+                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[var(--color-accent)]"
+                        value={newSkill.level}
+                        onChange={e => setNewSkill({...newSkill, level: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={isSaving} className="bg-[var(--color-accent)] font-bold px-8 flex items-center gap-2">
+                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : (editingSkill ? <Save size={18} /> : <Plus size={18} />)} 
+                        {isSaving ? 'SYNCHRONIZING...' : (editingSkill ? 'UPDATE_SKILL' : 'REGISTER_SKILL')}
+                      </Button>
+                      {editingSkill && (
+                        <Button variant="ghost" onClick={cancelEdit} className="font-bold">CANCEL</Button>
+                      )}
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {['Frontend', 'Backend', 'DevOps', 'Networking', 'AI', 'Other'].map(cat => {
+                  const catSkills = skills.filter(s => s.category === cat);
+                  if (catSkills.length === 0) return null;
+                  return (
+                    <Card key={cat} className="border-none shadow-sm overflow-hidden bg-white">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">{cat}</span>
+                        <Badge variant="outline" className="text-[8px] h-4">{catSkills.length}</Badge>
+                      </div>
+                      <CardContent className="p-4 space-y-3">
+                        {catSkills.map(skill => (
+                          <div key={skill.id} className="flex items-center justify-between group">
                             <div className="flex-1">
-                              <h4 className={cn(
-                                "font-bold text-slate-900",
-                                task.status === 'completed' && "line-through text-slate-400"
-                              )}>{task.title}</h4>
-                              <div className="flex items-center gap-3 mt-1">
-                                <Badge variant="outline" className={cn(
-                                  "text-[9px] uppercase font-bold",
-                                  task.priority === 'high' ? "text-red-600 bg-red-50 border-red-100" :
-                                  task.priority === 'medium' ? "text-amber-600 bg-amber-50 border-amber-100" :
-                                  "text-blue-600 bg-blue-50 border-blue-100"
-                                )}>
-                                  {task.priority}
-                                </Badge>
-                                <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
-                                  <Clock size={10} /> {task.dueDate}
-                                </span>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-bold text-slate-700">{skill.name}</span>
+                                <span className="text-[10px] font-mono text-slate-400">{skill.level}%</span>
+                              </div>
+                              <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-[var(--color-accent)]" 
+                                  style={{ width: `${skill.level}%` }}
+                                />
                               </div>
                             </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          {editingTaskId !== task.id && (
-                            <Button variant="ghost" size="icon" onClick={() => startEditing(task)} className="text-slate-400 hover:text-[var(--color-accent)]">
-                              <FileText size={18} />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="text-slate-400 hover:text-red-500">
-                            <Trash2 size={18} />
-                          </Button>
-                        </div>
+                            <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditSkill(skill)}>
+                                <Edit size={12} />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => deleteItem('skills', skill.id)}>
+                                <Trash2 size={12} />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </CardContent>
                     </Card>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -432,22 +1112,16 @@ export function Admin() {
           {activeTab === 'messages' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">Inbox ({messages.length})</h3>
-                <Button variant="outline" size="sm" onClick={() => {
-                  localStorage.removeItem('contact_messages');
-                  setMessages([]);
-                }} className="text-red-500 border-red-100 hover:bg-red-50 font-bold">
-                  CLEAR_ALL
-                </Button>
+                <h3 className="text-lg font-extrabold uppercase tracking-widest text-slate-900">Communication Logs ({messages.length})</h3>
               </div>
 
               {messages.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
                   <MessageSquare className="mx-auto text-slate-300 mb-4" size={48} />
-                  <p className="text-slate-500 font-bold">No messages received yet.</p>
+                  <p className="text-slate-500 font-bold">No active communications found.</p>
                 </div>
               ) : (
-                <div className="grid gap-6">
+                <div className="grid gap-4">
                   {messages.map((msg) => (
                     <Card key={msg.id} className="border-none shadow-sm overflow-hidden">
                       <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
@@ -457,14 +1131,19 @@ export function Admin() {
                           </div>
                           <div>
                             <span className="font-bold text-slate-900">{msg.name}</span>
-                            <span className="text-slate-400 text-xs ml-2">({msg.email})</span>
+                            <span className="text-slate-400 text-[10px] ml-2 font-mono">{msg.email}</span>
                           </div>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400">{msg.date}</span>
                       </div>
                       <CardContent className="p-6">
-                        <h4 className="font-extrabold text-slate-900 mb-2 uppercase tracking-tight">{msg.subject}</h4>
+                        <h4 className="font-extrabold text-slate-900 mb-2 uppercase tracking-tight text-sm">{msg.subject}</h4>
                         <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                        <div className="mt-4 flex justify-end">
+                          <Button variant="ghost" size="sm" onClick={() => deleteItem('contact_messages', msg.id)} className="text-red-500 h-8">
+                            <Trash2 size={14} className="mr-2" /> DISCARD
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -472,111 +1151,77 @@ export function Admin() {
               )}
             </div>
           )}
-
-          {activeTab === 'dashboard' && (
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card className="border-none shadow-sm bg-blue-500 text-white">
-                <CardContent className="p-6">
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2">Total Tasks</p>
-                  <h3 className="text-4xl font-extrabold">{tasks.length}</h3>
-                </CardContent>
-              </Card>
-              <Card className="border-none shadow-sm bg-purple-500 text-white">
-                <CardContent className="p-6">
-                  <p className="text-purple-100 text-xs font-bold uppercase tracking-widest mb-2">New Messages</p>
-                  <h3 className="text-4xl font-extrabold">{messages.length}</h3>
-                </CardContent>
-              </Card>
-              <Card className="border-none shadow-sm bg-emerald-500 text-white">
-                <CardContent className="p-6">
-                  <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-2">System Status</p>
-                  <h3 className="text-4xl font-extrabold">100%</h3>
-                </CardContent>
-              </Card>
-            </div>
-          )}
           
           {activeTab === 'settings' && (
-            <div className="max-w-2xl space-y-8">
-              <Card className="border-none shadow-sm">
+            <div className="max-w-2xl space-y-6">
+              <Card className="border-none shadow-sm overflow-hidden">
+                <div className="h-1 bg-[var(--color-accent)] w-full" />
                 <CardHeader>
-                  <CardTitle className="text-xl font-extrabold">Security Settings</CardTitle>
+                  <CardTitle className="text-xl font-extrabold">System Configuration</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleChangePassword} className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Current Password</label>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••"
-                          value={changePasswordData.current}
-                          onChange={(e) => setChangePasswordData({ ...changePasswordData, current: e.target.value })}
-                          className="border-slate-200 focus:border-[var(--color-accent)]"
-                        />
+                <CardContent className="space-y-6">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                        <User className="text-slate-500" />
                       </div>
-                      
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
-                          <Input 
-                            type="password" 
-                            placeholder="••••••••"
-                            value={changePasswordData.new}
-                            onChange={(e) => setChangePasswordData({ ...changePasswordData, new: e.target.value })}
-                            className="border-slate-200 focus:border-[var(--color-accent)]"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Confirm New Password</label>
-                          <Input 
-                            type="password" 
-                            placeholder="••••••••"
-                            value={changePasswordData.confirm}
-                            onChange={(e) => setChangePasswordData({ ...changePasswordData, confirm: e.target.value })}
-                            className="border-slate-200 focus:border-[var(--color-accent)]"
-                          />
-                        </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{user.displayName}</p>
+                        <p className="text-xs text-slate-500 font-mono tracking-tight">{user.email}</p>
                       </div>
                     </div>
+                    <Badge className="bg-green-100 text-green-700 border-green-200">MASTER_ADMIN</Badge>
+                  </div>
 
-                    {changePasswordStatus.message && (
-                      <p className={cn(
-                        "text-xs font-bold",
-                        changePasswordStatus.type === 'success' ? "text-green-500" : "text-red-500"
-                      )}>
-                        {changePasswordStatus.message}
-                      </p>
-                    )}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Security Protocol</h4>
+                    <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <ShieldCheck className="text-[var(--color-accent)]" size={20} />
+                        <div>
+                          <p className="text-sm font-bold">Encrypted Session</p>
+                          <p className="text-[10px] text-slate-500 font-mono">FIRESTORE_SESSION_ACTIVE</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="font-mono text-[9px]">AES_256</Badge>
+                    </div>
+                  </div>
 
-                    <Button type="submit" className="bg-[var(--color-accent)] font-bold">
-                      <Save size={18} className="mr-2" /> UPDATE_PASSWORD
+                  <div className="space-y-4 pt-6 border-t border-slate-100">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Database Tools</h4>
+                    <Button 
+                      variant="outline" 
+                      onClick={seedData}
+                      className="w-full border-dashed border-slate-200 text-slate-500 font-bold hover:bg-slate-50 hover:text-[var(--color-accent)]"
+                    >
+                      <Plus className="mr-2" size={16} /> SEED_INITIAL_SAMPLE_DATA
                     </Button>
-                  </form>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <p className="text-[10px] text-slate-400 font-mono">ADMIN_VERSION_1.2.0_FIREBASE</p>
+                    <Button variant="ghost" onClick={handleLogout} className="text-red-500 h-8 font-bold text-xs">
+                      TERMINATE_PROTOCOL
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-sm border-l-4 border-amber-500">
+              <Card className="border-none shadow-sm border-l-4 border-[var(--color-accent)] bg-[var(--color-accent-dim)]/20">
                 <CardContent className="p-6">
                   <div className="flex gap-4">
-                    <AlertCircle className="text-amber-500 shrink-0" size={24} />
+                    <AlertCircle className="text-[var(--color-accent)] shrink-0" size={24} />
                     <div>
-                      <h4 className="font-bold text-slate-900 mb-1">Password Reset Protocol</h4>
-                      <p className="text-sm text-slate-500 leading-relaxed">
-                        If you lose your password, you can use the emergency reset key on the login screen. 
-                        The current protocol key is: <code className="bg-slate-100 px-1 rounded text-slate-900 font-mono">password-reset-key-2026</code>
+                      <h4 className="font-bold text-slate-900 mb-1">Deployment Notice</h4>
+                      <p className="text-sm text-slate-500 leading-relaxed font-mono text-[11px]">
+                        Changes made here are synchronized in real-time with the production database. 
+                        Deletion of technical logs or infrastructure projects is irreversible.
+                        Cloud Storage quota is currently monitored.
                       </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          )}
-          
-          {(activeTab === 'posts' || activeTab === 'projects') && (
-            <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
-              <AlertCircle className="mx-auto text-slate-300 mb-4" size={48} />
-              <p className="text-slate-500 font-bold capitalize">{activeTab} management interface is under construction.</p>
             </div>
           )}
         </div>

@@ -9,6 +9,7 @@ export interface Project {
 }
 
 export interface Skill {
+  id?: string;
   name: string;
   category: 'Frontend' | 'Backend' | 'DevOps' | 'Networking' | 'AI' | 'Other';
   level: number; // 0-100
@@ -42,4 +43,15 @@ export interface Qualification {
   institution: string;
   period: string;
   description?: string;
+}
+
+export interface Comment {
+  id: string;
+  parentId: string; // post or project id
+  parentType: 'post' | 'project';
+  name: string;
+  content: string;
+  date: string;
+  timestamp: any; // Firestore Timestamp
+  approved: boolean;
 }

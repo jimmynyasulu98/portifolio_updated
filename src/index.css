@@ -138,3 +138,12 @@
 .cert-item {
   @apply p-4 border border-dashed border-[var(--color-border)] rounded-lg transition-all hover:border-[var(--color-accent)];
 }
+
+.markdown-body h1 { @apply text-3xl font-bold mt-8 mb-4 text-[var(--color-text-main)]; }
+.markdown-body h2 { @apply text-2xl font-bold mt-6 mb-3 text-[var(--color-text-main)]; }
+.markdown-body h3 { @apply text-xl font-bold mt-4 mb-2 text-[var(--color-text-main)]; }
+.markdown-body p { @apply mb-4 text-[var(--color-text-dim)]; }
+.markdown-body ul { @apply list-disc pl-6 mb-4 text-[var(--color-text-dim)]; }
+.markdown-body li { @apply mb-1; }
+.markdown-body strong { @apply font-bold text-[var(--color-text-main)]; }
+.markdown-body code { @apply bg-[var(--color-accent-dim)] px-1.5 py-0.5 rounded text-[var(--color-accent)] font-mono text-sm; }
