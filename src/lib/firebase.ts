@@ -1,21 +1,11 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Handle optional config file for cloud deployments (like Vercel)
-let localConfig: any = {};
-
-// In production (Vercel), we rely entirely on environment variables.
-// In development, we can try to load the local config file.
-if (import.meta.env.DEV) {
-  try {
-    // @ts-ignore
-    const importedConfig = await import('../../firebase-applet-config.json');
-    localConfig = importedConfig.default || importedConfig;
-  } catch (e) {
-    // Fallback if file missing in development
-  }
-}
+// We use Vite's eager glob to safely try to load the file if it exists
+const configs = import.meta.glob('../../firebase-applet-config.json', { eager: true });
+const localConfig = (configs['../../firebase-applet-config.json'] as any)?.default || {};
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || localConfig.apiKey,
@@ -26,7 +16,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || localConfig.appId,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Guard initialization against missing keys in production
+let app: FirebaseApp;
+if (!firebaseConfig.apiKey) {
+  console.warn("Firebase API Key is missing. If you see a blank page, ensure you set your VITE_FIREBASE_* environment variables in Vercel.");
+  // Create a minimal mock app or just let it fail later if used
+  app = getApps().length === 0 ? initializeApp({ apiKey: "missing", projectId: "missing", appId: "missing" }) : getApps()[0];
+} else {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+}
+
 export const auth = getAuth(app);
 
 // Use a specific database ID if provided, otherwise fallback to config or default
