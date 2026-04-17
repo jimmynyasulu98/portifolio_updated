@@ -74,7 +74,7 @@ export function About() {
                 <p className="text-xs font-mono uppercase tracking-wider opacity-60">Years Coding</p>
               </div>
               <div>
-                <h4 className="text-3xl font-bold mb-1 text-[var(--color-accent)]">20+</h4>
+                <h4 className="text-3xl font-bold mb-1 text-[var(--color-accent)]">10+</h4>
                 <p className="text-xs font-mono uppercase tracking-wider opacity-60">Projects Done</p>
               </div>
             </div>

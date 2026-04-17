@@ -13,29 +13,29 @@ export function Hero() {
             transition={{ duration: 0.6 }}
           >
             <div className="flex items-center gap-2 mb-6">
-              <span className="px-3 py-1 bg-[var(--color-accent-dim)] text-[var(--color-accent)] text-[10px] font-mono uppercase tracking-widest rounded border border-[var(--color-accent)]/20">
+              <span className="px-3 py-1 bg-[var(--color-accent-dim)] text-[var(--color-accent)] text-[12px] font-mono uppercase tracking-widest rounded border border-[var(--color-accent)]/20">
                 STATUS: AVAILABLE
               </span>
               <div className="h-px w-12 bg-[var(--color-accent)]/20" />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--color-text-dim)]">
-                LOC: LILONGWE_MW
+              <span className="text-[12px] font-mono uppercase tracking-widest text-[var(--color-text-dim)]">
+                LOCATION: Zomba Malawi
               </span>
             </div>
             
-            <h1 className="text-6xl md:text-9xl font-bold leading-[0.85] tracking-tighter mb-8 text-[var(--color-text-main)]">
+            <h1 className="text-6xl md:text-7xl font-bold leading-[0.85] tracking-tighter mb-8 text-[var(--color-text-main)]">
               DEV <span className="text-[var(--color-accent)]">&</span> <br />
               NETWORK <br />
               ENGINEER
             </h1>
             
-            <p className="text-lg md:text-xl text-[var(--color-text-dim)] max-w-2xl mb-10 leading-relaxed font-mono">
+            <p className="text-lg md:text-sm text-[var(--color-text-dim)] max-w-2xl mb-10 leading-relaxed font-mono">
               // Initializing robust digital infrastructures... <br />
               // Compiling high-performance web applications...
             </p>
             
             <div className="flex flex-wrap gap-4">
               <Button size="lg" className="rounded-md px-8 h-14 text-sm font-mono uppercase tracking-widest bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 group">
-                EXECUTE_PROJECTS
+                 PROJECTS
                 <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button size="lg" variant="outline" className="rounded-md px-8 h-14 text-sm font-mono uppercase tracking-widest border-[var(--color-border)] text-[var(--color-text-main)] hover:bg-[var(--color-accent-dim)]">

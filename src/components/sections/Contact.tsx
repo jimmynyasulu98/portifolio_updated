@@ -104,7 +104,7 @@ export function Contact() {
                 </div>
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-widest opacity-40 mb-1">Location</p>
-                  <p className="text-lg font-bold">Lilongwe, Malawi</p>
+                  <p className="text-lg font-bold">Zomba, Malawi</p>
                 </div>
               </div>
             </div>
@@ -116,7 +116,7 @@ export function Contact() {
             viewport={{ once: true }}
             className="immersive-card"
           >
-            <div className="card-label">Transmission Form</div>
+            <div className="card-label">Contact</div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -220,7 +220,7 @@ export function Contact() {
                     </>
                   ) : (
                     <>
-                      EXECUTE_SEND
+                      Submit Form
                       <Send className="ml-2 w-3 h-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </>
                   )}
