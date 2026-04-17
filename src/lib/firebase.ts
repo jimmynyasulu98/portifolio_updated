@@ -1,9 +1,16 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import localConfig from '../../firebase-applet-config.json';
 
-// Use environment variables if they exist, otherwise fallback to the local config file
+// Handle optional config file for cloud deployments (like Vercel)
+let localConfig: any = {};
+try {
+  // @ts-ignore - this file might not exist in production
+  localConfig = (await import('../../firebase-applet-config.json')).default;
+} catch (e) {
+  // Fallback to empty object if file missing
+}
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || localConfig.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || localConfig.authDomain,
