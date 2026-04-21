@@ -44,7 +44,7 @@ export function About() {
   }, []);
 
   return (
-    <section id="about" className="py-24 bg-[var(--color-bg)]">
+    <section id="about" className="py-10 bg-[var(--color-bg)]">
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-16 items-start">
           <motion.div

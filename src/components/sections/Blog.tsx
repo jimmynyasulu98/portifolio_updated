@@ -48,7 +48,7 @@ export function Blog() {
   });
 
   return (
-    <section id="blog" className="py-24 bg-[var(--color-bg)]">
+    <section id="blog" className="py-15 bg-[var(--color-bg)]">
       <div className="container mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-20">
           <h2 className="text-sm font-mono uppercase tracking-[0.3em] text-[var(--color-accent)] mb-4">

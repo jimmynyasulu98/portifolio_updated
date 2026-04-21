@@ -4,7 +4,7 @@ import { ArrowRight, Terminal, Shield, Cpu } from 'lucide-react';
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden technical-grid">
+    <section className="relative min-h-screen flex items-center pt-17 overflow-hidden technical-grid">
       <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl">
           <motion.div

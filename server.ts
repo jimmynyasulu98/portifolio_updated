@@ -15,9 +15,17 @@ async function startServer() {
 
   app.use(express.json());
 
-  // In-memory password storage (in a real app, this would be a database)
-  let adminPassword = process.env.VITE_ADMIN_PASSWORD || "admin";
-  const RESET_KEY = process.env.PASSWORD_RESET_KEY || "password-reset-key-2026";
+  // Admin authentication configuration
+  // These MUST be set in .env for any level of security
+  let adminPassword = process.env.VITE_ADMIN_PASSWORD;
+  const RESET_KEY = process.env.PASSWORD_RESET_KEY;
+
+  if (!adminPassword || !RESET_KEY) {
+    console.warn("CRITICAL: VITE_ADMIN_PASSWORD or PASSWORD_RESET_KEY is not set in environment variables.");
+    console.warn("Server will fall back to secure random values if not provided (placeholder).");
+    // Fallback to something non-predictable if missing, or just keep it undefined to disable
+    if (!adminPassword) adminPassword = "REPLACE_THIS_IMMEDIATELY_" + Math.random().toString(36).slice(-8);
+  }
 
   // API Routes
   app.post("/api/admin/login", (req, res) => {
@@ -31,11 +39,11 @@ async function startServer() {
 
   app.post("/api/admin/reset-password", (req, res) => {
     const { resetKey, newPassword } = req.body;
-    if (resetKey === RESET_KEY) {
+    if (RESET_KEY && resetKey && resetKey === RESET_KEY) {
       adminPassword = newPassword;
       res.json({ success: true, message: "Password reset successful" });
     } else {
-      res.status(401).json({ success: false, message: "Invalid reset key" });
+      res.status(401).json({ success: false, message: "Invalid reset key or reset disabled" });
     }
   });
 
